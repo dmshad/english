@@ -21,4 +21,4 @@
 - Не использовать мелкий шрифт. Основной текст и ввод от 20 px; служебные подписи от 16 px.
 - Проверка изменений: `node everyday-offline/scripts/test.cjs`, `node everyday-offline/scripts/build.cjs`; при изменениях интерфейса проверить браузер по возможности. Не утверждать, что браузерная проверка выполнена, если она недоступна.
 - Репозиторий оффлайн версии: https://github.com/dmshad/english. Отслеживаются только этот AGENTS.md, корневая страница/README, docs и everyday-offline; независимые соседние проекты исключены в .gitignore.
-- GitHub Pages публикует main / (root). Корневой index.html и everyday-offline/dist/index.html генерирует одна команда сборки; не редактировать их вручную, после изменения исходников пересобирать оба.
+- Настройка для GitHub Pages: main / (root). Фактический статус переноса проверяй в docs/github-deployment.md. Корневой index.html и everyday-offline/dist/index.html генерирует одна команда сборки; не редактировать их вручную, после изменения исходников пересобирать оба.
