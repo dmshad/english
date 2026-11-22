@@ -1,0 +1,15 @@
+# Independent projects in the shared local workspace
+/everyday-english/
+/everyday-native/
+/official-dice-check/
+/.pnpm-store/
+
+# Local files and dependencies
+.DS_Store
+node_modules/
+*.log
+.env
+.env.*
+!.env.example
+*.pem
+*.key
