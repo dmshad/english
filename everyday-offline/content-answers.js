@@ -1,0 +1,50 @@
+/* Additional authored ways to express the same intent. Earlier entries remain the display shortlist. */
+(function(root){
+  const extra=(id,index,answers)=>root.DIALOGUES.find(d=>d.id===id).turns[index].natural.push(...answers);
+  extra('coffee-to-go',0,['Could I have a small coffee to go?','A small to-go coffee, please.','I’ll take a small coffee to go.','Just one small coffee to go.','Small coffee to go, thanks.','One small coffee, to go, please.']);
+  extra('coffee-to-go',1,['No, I like it black.','Black is fine, thanks.','No milk for me, thanks.','No milk in mine, please.','Just plain coffee, thanks.','No, keep it black, please.','I’ll have it black, thanks.']);
+  extra('coffee-to-go',9,['Thanks, same to you!','Thank you, same to you!','Have a nice day too!','Thank you, have a good day yourself.','You have a nice day too, thanks.','Thanks, enjoy your day too.','Thanks! You too, have a good one.','And you, thanks!']);
+  extra('window-table',0,['There are two of us, please.','Just two of us.','Do you have a table for two?','Can you seat two of us?','Hi, two for a table, please.']);
+  extra('window-table',1,['This one is lovely, thank you.','That works for us, thanks.','This will be fine, thank you.','Yes, we’d like that one.','Yes, this is good. Thanks.','Lovely, thank you.','That’ll be great, thanks.']);
+  extra('window-table',9,['Yes, we’d like a minute, thanks.','A little time, please.','We need a little more time, thanks.','Just a minute to look, please.','Yes, give us a minute, please.','A minute would be nice, thank you.','Yes, that would help, thanks.','We’d like to look first, thanks.','Yes, a little more time, please.','Thanks, just a minute.']);
+  extra('no-tea',0,['Then coffee, thanks.','OK, I’ll have coffee instead.','I’ll get a coffee instead, please.','A coffee will be fine, thanks.','Coffee sounds good, then.','OK, let’s do coffee.']);
+  extra('no-tea',1,['I’ll take the small size.','The small size, please.','Just a small coffee.','Small will be fine, thanks.','I’d like the small one.']);
+  extra('no-tea',2,['Yes, but just a little milk.','A small amount of milk, please.','Not much milk, please.','Just a bit of milk, thanks.','A little bit of milk, please.','Yes, with a little milk, thanks.']);
+  extra('no-tea',3,['I’ll drink it here, thanks.','No, I’ll drink it here.','I’m going to stay here.','I’ll stay and drink it here.','No, it’s for here.','I’ll have it for here.']);
+  extra('wrong-drink',0,['Sorry, it was coffee for me.','Oh, sorry, I had a coffee order.','Actually, I ordered coffee.','Sorry, I asked for coffee.','I asked for a coffee, sorry.','It should be coffee, sorry.']);
+  extra('wrong-drink',2,['You’re good, thanks.','Don’t worry about it, thanks.','That’s quite OK, thank you.','No trouble, thanks.','It’s no problem, thank you.','Not a problem, thanks.','It’s all good, thank you.','That’s absolutely fine, thanks.','No need to worry, thanks.','All right, no problem. Thanks.','That’s fine with me, thanks.','It’s OK, don’t worry. Thank you.','No worries at all, thanks.']);
+  extra('wrong-drink',3,['I don’t need anything else, thanks.','I have everything, thank you.','No, I’m fine, thank you.','That’s it for me, thanks.','I’m all good, thanks.','That’ll be all, thanks.','No, that’s everything I need. Thanks.','Nothing more, thank you.','Just that, thank you.']);
+  extra('breakfast',1,['Could I see a menu?','May I see the menu, please?','Can you give me a menu?','A menu would be great, thanks.','Could you bring the menu, please?']);
+  extra('breakfast',5,['Everything tastes great, thanks.','Yes, the food is very good.','Really nice, thank you.','Yes, it’s lovely. Thanks.','Very tasty, thanks.','Yes, I really like it. Thanks.','The breakfast is great, thank you.']);
+  extra('breakfast',7,['Yes, I’m ready for the check.','I’m done. The check, please.','Yes, could you bring the bill?','I’m ready to pay. Can I have the check?','Could I get the check, please?']);
+  extra('waiting-friend',0,['Not just yet. My friend isn’t here yet.','I’m just waiting for a friend.','Still waiting for my friend, thanks.','Not yet, please. I’m waiting for my friend.','My friend’s not here yet.','I’m waiting for someone to join me.']);
+  extra('waiting-friend',3,['Sorry, I missed that.','Could you say that again?','Could you repeat the price?','What’s the price again, sorry?','Sorry, I didn’t catch that.','Say that again, please?','I’m sorry, how much?','How much did you say?']);
+  extra('waiting-friend',6,['Yes, we really like it.','The cake is great.','It tastes really good.','Yes, really tasty.','So good, thanks.','It’s delicious.','Yes, we love the cake.']);
+  extra('waiting-friend',9,['Right, thank you.','Got it, thanks.','OK, that’s great. Thank you.','Good, thanks.','Lovely, thank you.','Fine, thanks.','All good, thanks.','Thanks for letting us know.']);
+  extra('bread-sliced',0,['Could I get one white loaf?','A white loaf for me, please.','Just one loaf of white bread.','One white bread loaf, please.']);
+  extra('bread-sliced',1,['Yes, that would help.','Yes, I’d like it sliced.','Please slice the loaf.','Sliced would be great, thank you.','Yes, could you slice it for me?','Yes, cut it into slices, please.']);
+  extra('bread-sliced',2,['No, I’ve got my own bag here.','I have a bag with me, thanks.','No thanks, I brought my own.','I brought my own bag, thank you.','No, I’ve brought a bag.']);
+  extra('school-snacks',1,['Please use two bags.','Could you split them into two bags?','Can you use two bags, please?','Not one bag, two, please.','Two separate bags, thanks.']);
+  extra('school-snacks',2,['That’s exactly right, thank you.','Exactly, two per bag.','Two in each, that’s right.','Yes, two rolls per bag.','You’ve got it, thanks.']);
+  extra('school-snacks',9,['That’s plenty, thank you.','We don’t need anything else, thanks.','No more, thanks.','No, we have enough. Thank you.','That’ll do, thank you.','Just those, thanks.']);
+  extra('birthday-cake',1,['That’s the one, thanks.','That cake looks good.','Yes, chocolate sounds good.','That looks great, thank you.','That will be perfect.','Chocolate is perfect, thanks.']);
+  extra('hold-last-loaf',1,['Could you hold that one for me?','Please keep it for me.','Can you keep the last loaf for me?','Could you save that for me, please?']);
+  extra('hold-last-loaf',2,['I’m only five minutes away.','Yes, I’ll be there in about five minutes.','I’m about five minutes away.','I’ll get there in five minutes.','Five minutes away, yes.']);
+  extra('bakery-morning-pickup',9,['That’s exactly what I want, thanks.','Yes, everything’s right. Thank you.','Yes, all right. Thanks.','That’s perfect, thanks.','Exactly right, thank you.','All correct, thank you.']);
+  extra('bakery-outside-table',3,['Here at this table, please.','Just by this table, thanks.','Over here, next to this table.','Right next to this table, please.','By our table, thanks.']);
+  extra('takeout-pickup-name',0,['I’m just picking up an order.','No, I already placed an order.','Pickup for me, please.','I’m here for a pickup.','No, just picking up my food.','No, I have a pickup order.']);
+  extra('takeout-pickup-name',1,['It’s in the name of Alex.','For Alex, please.','Alex is the name.','It should be under Alex.','The order’s under Alex.']);
+  extra('takeout-pickup-name',9,['Absolutely, here you go.','Here’s my order.','Sure, this is the order.','Of course, it’s right here.','Here’s the order on my phone.','Yes, have a look.']);
+  extra('takeout-napkins',9,['No, I have everything now. Thanks.','I’m fine now, thank you.','That’s it for me, thanks.','No more, thanks.','Nothing more, thanks.','All good now, thank you.','No, that’s everything I need.']);
+  extra('takeout-sandwich',3,['Yes, I’ll have both.','Both sound good.','Both are good, thanks.','Yes, both of those.','Yes, add both, please.','I’d like both, thanks.']);
+  extra('takeout-sandwich',4,['Cut it in half, please.','In two halves, please.','Yes, that would be helpful.','Yes, could you cut it in half?','Please cut it into two halves.']);
+  extra('takeout-wrong-counter',9,['That’s fine, thank you.','That would be great, thanks.','Thanks so much.','That’s really helpful, thanks.','Great, I’ll sit here. Thanks.','Lovely, thanks.']);
+  extra('takeout-second-bag',1,['Yes, you’ve got it.','Exactly right.','That’s correct.','Yes, those are mine.','Yes, that’s what I ordered.']);
+  extra('takeout-second-bag',9,['That’s very kind, thanks.','You’ve been very helpful, thanks.','Thank you so much.','Thanks, I appreciate it.','Much appreciated, thanks.','Thanks for that.']);
+  extra('takeout-lunch-friend',0,['Pizza would be nice.','I’m thinking pizza.','Do you want to get pizza?','Let’s go with pizza.','We could have pizza.','I’d go for pizza.']);
+  extra('takeout-lunch-friend',8,['Sure, at what time?','Yes, when do you need it?','I can do that. What time?','Yeah, what time?','Sure, when should I get it?','OK, when do I need to be there?']);
+  extra('takeout-phone-pizza',4,['I’ll come get it.','I’ll collect it.','I’ll collect the order myself.','No delivery, pickup please.','We’ll pick it up.']);
+  extra('takeout-delivery-door',7,['Yes, I’m the one.','That’s right, that’s me.','Alex, yes, that’s me.','Yes, that’s my name.','That’s me, thanks.']);
+  // Remove spelling/punctuation duplicates without inventing additional meaning variants.
+  for(const d of root.DIALOGUES)for(const turn of d.turns){const seen=new Set();turn.natural=turn.natural.filter(s=>{const key=root.OfflineEngine.normalize(s);if(seen.has(key))return false;seen.add(key);return true;});}
+})(typeof window!=='undefined'?window:globalThis);

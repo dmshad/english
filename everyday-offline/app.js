@@ -5,20 +5,20 @@
   const E = window.OfflineEngine;
   const dialogues = window.DIALOGUES;
   const KEY = 'everyday-offline-v1';
-  const labels = {short: 'Короткий', medium: 'Средний', long: 'Длинный'};
+  const labels = {short: '4 реплики · прежняя версия', medium: '6 реплик · прежняя версия', long: '10 реплик'};
   const statuses = {correct: 'Верно', acceptable: 'Допустимо', unknown: 'Не распознано', revealed: 'Без ответа'};
   const escape = text => String(text ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   let persistent = true;
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; }
   catch (_) { persistent = false; }
-  let settings = {level: 'A1', topic: 'random', length: 'short', ...saved.settings};
+  let settings = {level: 'A1', topic: 'random', ...saved.settings, length: 'long'};
   if (!['A1','A2','B1','B2','C1','C2'].includes(settings.level)) settings.level = 'A1';
-  if (!['short','medium','long'].includes(settings.length)) settings.length = 'short';
   const topics = [...new Map(dialogues.map(d => [d.topic, d.topicLabel])).entries()];
   if (settings.topic !== 'random' && !topics.some(([id]) => id === settings.topic)) settings.topic = 'random';
   let journal = Array.isArray(saved.journal) ? saved.journal.filter(item => item && typeof item.answer === 'string' && typeof item.task === 'string') : [];
   const completedIds = new Set(Array.isArray(saved.completedIds) ? saved.completedIds.filter(id => typeof id === 'string') : []);
+  if (saved.progressRevision !== window.CONTENT_REVISION) for (const id of window.REVISED_DIALOGUE_IDS) completedIds.delete(id);
   const validAnswer = a => a && Object.hasOwn(statuses, a.status) && typeof a.answer === 'string';
   function validArchive(entry) {
     const d = entry?.dialogue;
@@ -43,7 +43,7 @@
   let toastTimer;
 
   function save() {
-    try { localStorage.setItem(KEY, JSON.stringify({version: 2, settings, journal, completedIds: [...completedIds], history, session})); }
+    try { localStorage.setItem(KEY, JSON.stringify({version: 3, progressRevision: window.CONTENT_REVISION, settings, journal, completedIds: [...completedIds], history, session})); }
     catch (_) { persistent = false; }
     $('journal-count').textContent = journal.length;
   }
@@ -78,8 +78,7 @@
     const available = availablePool();
     const remaining = choices.filter(d => !completedIds.has(d.id)).length;
     const previous = current();
-    const lengths = [['short','Короткий','4 реплики'], ['medium','Средний','6 реплик'], ['long','Длинный','10 реплик']];
-    app.innerHTML = `${storageNote()}${contentUpdated ? '<p class="notice">Диалоги стали длиннее и обновились. Начни новую ситуацию: старый прогресс больше не соответствует репликам. Журнал нераспознанных ответов сохранен.</p>' : ''}<div class="menu-tools"><button class="secondary" data-action="history">История · ${history.length}</button></div><section class="hero"><div class="hero-copy"><div class="eyebrow">Практика настоящих разговоров</div>
+    app.innerHTML = `${storageNote()}${contentUpdated ? '<p class="notice">Теперь в каждом диалоге 10 твоих реплик. Текущий диалог старой версии нужно начать заново. История и журнал нераспознанных ответов сохранены.</p>' : ''}<div class="menu-tools"><button class="secondary" data-action="history">История · ${history.length}</button><button class="text-button" data-action="update">Загрузить свежую версию</button></div><section class="hero"><div class="hero-copy"><div class="eyebrow">Практика настоящих разговоров</div>
       <h1>Маленький диалог.<br>Больше уверенности.</h1><p>Переводи реплики на английский и пробуй, как это звучит в обычной жизни. Один разговор за раз.</p>
       <div class="features"><span class="pill">Живой английский</span><span class="pill">Без интернета</span><span class="pill">Без таймера</span></div>
       <div class="sample"><small>В кафе это может звучать просто</small><p>“Small, please.”</p><small>Короткий ответ тоже бывает лучшим ответом.</small></div></div>
@@ -87,10 +86,10 @@
       ${previous ? `<div class="resume"><p><strong>${escape(previous.title)}</strong><br><small>${session.index === previous.turns.length ? 'Диалог завершен — результаты сохранены' : `Сохранено: ${session.index} из ${previous.turns.length} реплик`}</small></p><div class="actions"><button class="quiet" data-action="resume">${session.index === previous.turns.length ? 'Посмотреть результат' : 'Продолжить'}</button><button class="text-button" data-action="discard">Убрать сохраненный диалог</button></div></div>` : ''}
       <fieldset class="field"><legend>Уровень английского</legend><div class="levels">${['A1','A2','B1','B2','C1','C2'].map(level => `<button class="choice" data-level="${level}" aria-pressed="${settings.level === level}">${level}</button>`).join('')}</div></fieldset>
       <div class="field"><label for="topic">Тема</label><select id="topic"><option value="random" ${settings.topic === 'random' ? 'selected' : ''}>Случайная тема</option>${topics.map(([id,label]) => `<option value="${escape(id)}" ${settings.topic === id ? 'selected' : ''}>${escape(label)}</option>`).join('')}</select></div>
-      <fieldset class="field"><legend>Длина диалога</legend><div class="lengths">${lengths.map(([id,title,note]) => `<button class="choice" data-length="${id}" aria-pressed="${settings.length === id}">${title}<span>${note}</span></button>`).join('')}</div></fieldset>
+      <p class="hint">В каждом диалоге — 10 твоих реплик.</p>
       ${choices.length ? `<div class="field"><label for="dialogue-choice">Ситуация</label><select id="dialogue-choice"><option value="">Случайная из ${available.length}${remaining ? ' непройденных' : ' — повторение'}</option>${choices.map(d => `<option value="${d.id}" ${selectedId === d.id ? 'selected' : ''} ${remaining && completedIds.has(d.id) ? 'disabled' : ''}>${escape(d.title)}${completedIds.has(d.id) ? ' · пройден' : ''}</option>`).join('')}</select><p class="hint">${remaining ? `Еще не пройдено: ${remaining} из ${choices.length}.` : 'Все диалоги этого выбора пройдены — можно повторять.'}</p></div>` : `<p class="notice">Для ${settings.level} в этом выборе диалогов пока нет. Выбери A1 или другую тему.</p>`}
       <button class="primary full" data-action="start" ${choices.length ? '' : 'disabled'}>Начать диалог</button>
-      <p class="setup-note">В подборке ${dialogues.length} ситуаций, ${topics.length} темы. Длина — число твоих реплик. Сначала предлагаются непройденные диалоги.</p></div></section>`;
+      <p class="setup-note">В подборке ${dialogues.length} ситуаций, ${topics.length} темы. Каждый диалог — 10 твоих реплик. Сначала предлагаются непройденные диалоги.</p></div></section>`;
   }
   function begin(forceRandom = false) {
     const choices = availablePool();
@@ -105,8 +104,8 @@
     return `${stage ? `<p class="scene-note">${escape(stage)}</p>` : ''}<p class="speaker">${escape(speaker)}</p><div class="partner"><p class="english" lang="en">${escape(en)}</p><details><summary>Показать перевод</summary><p class="translation">${escape(ru)}</p></details></div>`;
   }
   function variants(turn) {
-    return `<details class="variants"><summary>Другие варианты ответа</summary><p class="variant-heading">Естественно в этой ситуации</p><ul lang="en">${turn.natural.map(item => `<li>${escape(item)}</li>`).join('')}</ul>
-      ${turn.acceptable.length ? `<p class="variant-heading">Допустимо, но менее привычно</p><ul>${turn.acceptable.map(item => `<li><span lang="en">${escape(item.text)}</span><span class="variant-note">${escape(item.note)}</span></li>`).join('')}</ul>` : ''}<p class="hint">Это известные приложению варианты, а не все возможные ответы.</p></details>`;
+    const choices = E.preferred(turn);
+    return `<details class="variants"><summary>Частые варианты ответа · ${choices.length}</summary><ul lang="en">${choices.map(item => `<li>${escape(item)}</li>`).join('')}</ul><p class="hint">Показано не больше 10 естественных вариантов для этой ситуации. Приложение распознает и другие формулировки.</p></details>`;
   }
   function feedback(result, turn) {
     const message = result.status === 'unknown' ? 'В базе пока нет такого ответа. Возможно, он правильный. Попытка добавлена в журнал для разбора.' :
@@ -171,7 +170,7 @@
   }
   function fragment(index, d = current(), source = session) {
     const t = d.turns[index], a = source.answers[index];
-    return `${t.stage ? t.stage + '\n' : ''}${d.speaker}: ${t.en}\nПеревод: ${t.ru}\nМоя заданная реплика: ${t.task}\nМой ответ: ${a?.answer || '(нет ответа)'}\nРезультат: ${a ? statuses[a.status] : 'Еще не проверен'}\nЭталон: ${t.best}\nЕстественные варианты: ${t.natural.join(' / ')}${t.acceptable.length ? '\nДопустимые: ' + t.acceptable.map(v => `${v.text} — ${v.note}`).join(' / ') : ''}`;
+    return `${t.stage ? t.stage + '\n' : ''}${d.speaker}: ${t.en}\nПеревод: ${t.ru}\nМоя заданная реплика: ${t.task}\nМой ответ: ${a?.answer || '(нет ответа)'}\nРезультат: ${a ? statuses[a.status] : 'Еще не проверен'}\nЭталон: ${t.best}\nЕстественные варианты: ${E.preferred(t).join(' / ')}`;
   }
   function dialogueText(index, d = current(), source = session) {
     const header = `Everyday · ${d.level} · ${d.topicLabel} · ${d.title}\nКонтекст: ${d.context}\nТон: ${d.tone}\n`;
@@ -208,10 +207,14 @@
     if (button.dataset.historyView) { const entry = history.find(item => item.runId === button.dataset.historyView); if (entry) renderHistoryEntry(entry); return; }
     if (button.dataset.historyCopy) { const entry = history.find(item => item.runId === button.dataset.historyCopy); if (entry) copy(dialogueText(undefined,entry.dialogue,entry)); return; }
     if (button.dataset.level) { settings.level = button.dataset.level; selectedId = ''; save(); renderHome(); document.querySelector(`[data-level="${settings.level}"]`).focus(); return; }
-    if (button.dataset.length) { settings.length = button.dataset.length; selectedId = ''; save(); renderHome(); document.querySelector(`[data-length="${settings.length}"]`).focus(); return; }
     if (button.hasAttribute('data-copy-turn')) { copy(dialogueText(Number(button.dataset.copyTurn))); return; }
     switch (button.dataset.action) {
       case 'start': begin(); break;
+      case 'update': {
+        if (!['http:','https:'].includes(window.location.protocol)) { toast('Для обновления оффлайн файла скачай новый index.html с сайта проекта.'); break; }
+        if (navigator.onLine === false) { toast('Для загрузки новой версии нужен интернет.'); break; }
+        save(); const url = new URL(window.location.href); url.searchParams.set('update',String(Date.now())); window.location.assign(url.href); break;
+      }
       case 'resume': screen = 'practice'; renderPractice(); window.scrollTo(0,0); break;
       case 'discard': session = null; save(); renderHome(); break;
       case 'home': renderHome(); window.scrollTo(0,0); break;
