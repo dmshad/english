@@ -2,7 +2,7 @@
  * No word-bag scoring. Unknown syntax never becomes a red verdict by default. */
 (function(root){
   'use strict';
-  const contractions={"i'm":'i am',"we're":'we are',"you're":'you are',"it's":'it is',"that's":'that is',"there's":'there is',"where's":'where is',"what's":'what is',"i'd":'i would',"we'd":'we would',"i'll":'i will',"we'll":'we will',"i've":'i have',"we've":'we have',"don't":'do not',"doesn't":'does not',"can't":'cannot',"isn't":'is not',"aren't":'are not',"won't":'will not',"wouldn't":'would not',"couldn't":'could not',"let's":'let us'};
+  const contractions={"haven't":"have not","i'm":'i am',"we're":'we are',"you're":'you are',"it's":'it is',"that's":'that is',"there's":'there is',"where's":'where is',"what's":'what is',"i'd":'i would',"we'd":'we would',"i'll":'i will',"we'll":'we will',"i've":'i have',"we've":'we have',"don't":'do not',"doesn't":'does not',"can't":'cannot',"isn't":'is not',"aren't":'are not',"won't":'will not',"wouldn't":'would not',"couldn't":'could not',"let's":'let us'};
   function normalize(text){return String(text).normalize('NFKC').toLowerCase().replace(/[’‘]/g,"'").replace(/\b[a-z]+'[a-z]+\b/g,w=>contractions[w]||w).replace(/[^a-z0-9'\s]/g,' ').replace(/\s+/g,' ').trim();}
   function edges(text){
     let core=text;const blocks=[];
@@ -174,7 +174,7 @@
     if(frame.kind==='conversation'){
       const semantic=family(s,frame,blocks);if(semantic)return semantic;
       if((frame.patterns||[]).some(p=>new RegExp('^(?:'+p+')$').test(s))&&(s||affirmed))return good([...blocks,{role:'Смысл реплики',text:s||'подтверждение'}]);
-      for(const e of frame.errors||[])if(new RegExp('^(?:'+e.pattern+')$').test(s))return bad(e.code||'conversation-grammar',e.fragment,e.note,e.correction,blocks);
+      for(const e of frame.errors||[])if(new RegExp('^(?:'+e.pattern+')$').test(s))return bad(e.code||'conversation-grammar',e.fragmentPattern?s.match(new RegExp(e.fragmentPattern))?.[0]:e.fragment,e.note,e.correction,blocks);
       return null;
     }
     if(frame.kind==='object'){
@@ -328,7 +328,7 @@
       if(!ids.length)ids=tokens.map((_,i)=>i);
       for(const i of ids){tokens[i].color='acceptable';tokens[i].note=result.note;}
     }
-    return {...result,annotations:tokens,insertions,orthographyNote:/^lets\s+(?:watch|see|go|choose|pick)\b/i.test(String(answer))?'Для «давай» стандартное написание — let’s. Пропуск апострофа сейчас отмечается отдельно и не меняет оценку смысла; правило штрафа еще не выбрано.':null,assessmentVersion:'pilot-3'};
+    return {...result,annotations:tokens,insertions,orthographyNote:/^lets\s+(?:watch|see|go|choose|pick)\b/i.test(String(answer))?'Разговорное lets принимается без снижения оценки; стандартное написание — let’s.':null,assessmentVersion:'pilot-3'};
   }
   root.StructuredAssessment={check,normalize,nounPhrase,request};
   if(typeof module!=='undefined')module.exports=root.StructuredAssessment;

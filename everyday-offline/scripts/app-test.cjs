@@ -23,120 +23,48 @@ function setup(initial, blocked = false) {
     localStorage:{getItem(key){if (blocked) throw Error('blocked'); return store.get(key) || null;},setItem(key,value){if(blocked)throw Error('blocked');store.set(key,value);}},
     navigator:{onLine:true}, URL, setTimeout:()=>1, clearTimeout(){}, console
   });
-  for (const file of ['engine.js','content.js','content-stage1.js','content-ten.js','content-answers.js','structured.js','content-pilot.js','content-friend.js','content-intros.js','app.js']) vm.runInContext(fs.readFileSync(path.join(__dirname,'..',file),'utf8'),context);
+  for (const file of ['engine.js','content.js','content-stage1.js','content-ten.js','content-answers.js','structured.js','content-pilot.js','content-friend.js','content-library.js','content-intros.js','app.js']) vm.runInContext(fs.readFileSync(path.join(__dirname,'..',file),'utf8'),context);
   const click = (data) => el('app').handlers.click({target:{closest:()=>({dataset:data,hasAttribute:name=>name==='data-copy-turn' && 'copyTurn' in data})}});
   const change = (id,value) => el('app').handlers.change({target:{id,value}});
   const answer = text => {el('answer').value = text; el('app').handlers.input({target:{id:'answer',value:text}}); el('app').handlers.submit({target:{id:'answer-form'},preventDefault(){}});};
-  return {el,click,change,answer,store,state:()=>JSON.parse(store.get(KEY)),html:()=>el('app').innerHTML,all:context.window.DIALOGUES,window:context.window,navigator:context.navigator};
+  return {el,click,change,answer,store,state:()=>JSON.parse(store.get(KEY)),html:()=>el('app').innerHTML,all:context.window.DIALOGUES.filter(d=>d.checking==='construction'),window:context.window,navigator:context.navigator};
 }
-let ui = setup();
-ok(ui.html().includes('Твой следующий разговор'));
-ui.click({level:'B2'}); ok(ui.html().includes('Для B2 в этом выборе диалогов пока нет')); ok(ui.html().includes('data-action="start" disabled'));
-ui.click({level:'A1'});
-ui.change('topic','cafe');
-ui.change('dialogue-choice','coffee-to-go'); ui.click({action:'start'});
-equal(ui.state().session.id,'coffee-to-go');
-ok(ui.html().includes('<details><summary>Показать перевод</summary>'));
-ok(!ui.html().includes('Как можно сказать'));
-ui.answer(''); equal(ui.state().session.answers.length,0);
-ui.answer('Can I get a small coffee to go, please?'); equal(ui.state().session.answers[0].status,'correct');
-ui.click({action:'next'}); equal(ui.state().session.index,1);
-ui.el('answer').value = 'No milk'; ui.el('app').handlers.input({target:{id:'answer',value:'No milk'}});
-const restored = setup(ui.store.get(KEY));
-ok(restored.html().includes('Продолжить'));
-restored.click({action:'resume'}); ok(restored.html().includes('>No milk</textarea>'));
-restored.answer('Milk, please.'); equal(restored.state().session.answers[1].status,'unknown'); equal(restored.state().journal.length,1);
-restored.click({action:'retry'}); equal(restored.state().session.answers.length,1);
-restored.answer('No milk, thanks.'); equal(restored.state().session.answers[1].status,'correct'); equal(restored.state().journal.length,1);
-restored.click({action:'next'}); equal(restored.state().session.index,2);
-restored.answer('Card, please.'); restored.click({action:'next'});
-for(const t of restored.all[0].turns.slice(3)){restored.answer(t.best);restored.click({action:'next'});}
-equal(restored.state().session.index,10); ok(restored.html().includes('Диалог пройден'));
-restored.click({action:'another'}); ok(restored.state().session.id!=='coffee-to-go');
-restored.click({action:'reveal'}); equal(restored.state().session.answers[0].status,'revealed'); equal(restored.state().journal.length,1);
-restored.click({action:'home'}); restored.el('journal-button').handlers.click(); ok(restored.el('journal-dialog').open); ok(restored.el('journal-content').innerHTML.includes('Milk, please.'));
-restored.el('clear-journal').handlers.click(); equal(restored.el('clear-confirm').hidden,false);
-restored.el('confirm-clear').handlers.click(); equal(restored.state().journal.length,0);
-// Every authored conversation can run to completion through the UI event handlers.
-for (const d of ui.all) {
-  const run = setup(); run.click({length:d.length}); run.change('topic',d.topic); run.change('dialogue-choice',d.id); run.click({action:'start'});
-  for (const t of d.turns) {run.answer(t.best); run.click({action:'next'});}
-  equal(run.state().session.index,d.turns.length); ok(run.html().includes('Диалог пройден'));
-  equal(run.state().session.answers.filter(a=>a.status==='correct').length,d.turns.length);
-  run.click({action:'copy-all'}); ok(run.el('copy-dialog').open); ok(run.el('copy-text').value.includes(d.ending.en));
-}
-const injection = setup(); injection.click({action:'start'}); injection.answer('<img src=x onerror=alert(1)>');
-ok(!injection.html().includes('<img src=x')); ok(injection.html().includes('&lt;img src=x'));
-const noStorage = setup(null,true); ok(noStorage.html().includes('Хранилище браузера недоступно'));
-noStorage.click({action:'start'}); noStorage.click({action:'reveal'}); noStorage.click({action:'next'}); ok(noStorage.html().includes('Твоя реплика 2 из 10'));
-const corrupt = setup('{bad-json'); ok(corrupt.html().includes('Твой следующий разговор'));
-const invalidSession = setup(JSON.stringify({session:{id:'coffee-to-go',index:99,answers:[]}})); ok(!invalidSession.html().includes('Продолжить'));
-const oldVersion = setup(JSON.stringify({session:{id:'breakfast',index:5,answers:[]},journal:[{answer:'my old answer',task:'old task'}]}));
-equal(oldVersion.state().session,null); equal(oldVersion.state().journal.length,1);
-ok(oldVersion.html().includes('История и журнал нераспознанных ответов сохранены'));
-ok(ui.html().includes('из 10'));
-ok(!ui.html().includes('Длина диалога'));
-ok(!ui.html().includes('data-length='));
-// History keeps six runs, while lifetime completion flags survive eviction.
-const archive = setup();
-for (const d of archive.all.slice(0,7)) {
-  archive.click({action:'home'}); archive.click({length:d.length}); archive.change('topic',d.topic);
-  archive.change('dialogue-choice',d.id); archive.click({action:'start'});
-  equal(archive.state().completedIds.includes(d.id),false); // Opening is not completing.
-  for (const t of d.turns) { archive.answer(t.best); archive.click({action:'next'}); }
-  equal(archive.state().completedIds.includes(d.id),true);
-}
-equal(archive.state().history.length,6); equal(archive.state().completedIds.length,7);
-ok(!archive.state().history.some(h=>h.dialogue.id==='coffee-to-go'));
-const activeBeforeHistory = JSON.stringify(archive.state().session);
-const latest = archive.state().history.at(-1);
-archive.click({action:'history'}); ok(archive.html().includes('История')); ok(archive.html().includes('Посмотреть ответы'));
-archive.click({historyView:latest.runId}); ok(archive.html().includes(latest.answers[0].answer));
-archive.click({historyCopy:latest.runId}); ok(archive.el('copy-text').value.includes(latest.dialogue.turns[0].en));
-ok(archive.el('copy-text').value.includes(latest.answers[0].answer));
-equal(JSON.stringify(archive.state().session),activeBeforeHistory);
-archive.all.find(d=>d.id===latest.dialogue.id).turns[0].best = 'NEW REFERENCE SHOULD NOT APPEAR';
-archive.click({historyView:latest.runId}); ok(!archive.html().includes('NEW REFERENCE SHOULD NOT APPEAR'));
-const loadedArchive = setup(archive.store.get(KEY)); equal(loadedArchive.state().history.length,6); equal(loadedArchive.state().completedIds.length,7);
-// Lifetime flags apply across topic/random changes, and stale explicit selection cannot bypass them.
-const shortIds = ui.all.filter(d=>d.length==='long').map(d=>d.id);
-const unseenId = 'bread-sliced';
-const onlyOne = setup(JSON.stringify({progressRevision:4,completedIds:shortIds.filter(id=>id!==unseenId)}));
-onlyOne.change('dialogue-choice','coffee-to-go'); onlyOne.click({action:'start'}); equal(onlyOne.state().session.id,unseenId);
-onlyOne.answer(onlyOne.all.find(d=>d.id===unseenId).turns[0].best);
-equal(onlyOne.state().completedIds.includes(unseenId),false);
-equal(onlyOne.state().history.length,1);
-onlyOne.click({action:'home'}); onlyOne.change('topic','bakery'); onlyOne.click({action:'start'}); equal(onlyOne.state().session.id,unseenId);
-// When all matching dialogues are completed, repetition is available.
-const repeat = setup(JSON.stringify({progressRevision:4,completedIds:shortIds})); repeat.change('topic','cafe'); repeat.change('dialogue-choice','coffee-to-go'); repeat.click({action:'start'}); equal(repeat.state().session.id,'coffee-to-go');
-// Old per-filter "seen" meant opened, so it must not mark untouched dialogues as completed.
-const oldSeen = setup(JSON.stringify({seen:{'A1:random:short':shortIds}})); equal(oldSeen.state().completedIds.length,0);
-// Content migration keeps history/journal, reopens changed scenarios and retains unchanged completions.
-const legacyState = archive.state();
-legacyState.progressRevision=2;
-legacyState.completedIds=['coffee-to-go','breakfast'];
-legacyState.session={id:'coffee-to-go',contentRevision:2,index:4,answers:[],startedAt:new Date().toISOString()};
-const legacy=setup(JSON.stringify(legacyState));
-equal(legacy.state().session,null); equal(legacy.state().history.length,6);
-ok(!legacy.state().completedIds.includes('coffee-to-go'));ok(legacy.state().completedIds.includes('breakfast'));
-const stable=setup(legacy.store.get(KEY));ok(stable.state().completedIds.includes('breakfast'));
-// Repeated runs of the same dialogue are separate history records, not one overwritten record.
-const repeats = setup(JSON.stringify({progressRevision:4,completedIds:shortIds}));
-for (let i=0;i<7;i++) {
-  repeats.click({action:'home'}); repeats.change('topic','cafe'); repeats.change('dialogue-choice','coffee-to-go'); repeats.click({action:'start'});
-  for(const t of repeats.all[0].turns){repeats.answer(t.best);repeats.click({action:'next'});}
-}
-equal(repeats.state().history.length,6); equal(new Set(repeats.state().history.map(h=>h.runId)).size,6);
-const updater=setup();updater.change('dialogue-choice','coffee-to-go');updater.click({action:'start'});
-updater.el('answer').value='My draft';updater.el('app').handlers.input({target:{id:'answer',value:'My draft'}});
-updater.click({action:'home'});const beforeUpdate=JSON.stringify(updater.state().session);updater.click({action:'update'});
-ok(updater.window.location.href.includes('update='));equal(JSON.stringify(updater.state().session),beforeUpdate);
-const offline=setup();offline.window.location.protocol='file:';offline.window.location.href='file:///test/index.html';offline.click({action:'update'});equal(offline.window.location.href,'file:///test/index.html');
+
+const ui=setup();equal(ui.all.length,2);ok(!ui.html().includes('Кафе</option>'));
+ok(!ui.html().includes('по прежней базе'));
+for(const d of ui.all){const run=setup();run.click({pilot:d.id});equal(run.state().session.id,d.id);
+for(const t of d.turns){run.answer(t.best);run.click({action:'next'});}equal(run.state().session.index,10);ok(run.html().includes('Диалог пройден'));run.click({action:'copy-all'});ok(run.el('copy-text').value.includes(d.ending.en));}
+const error=setup();error.click({pilot:'pilot-library'});error.answer('I need a English textbook.');equal(error.state().session.answers[0].status,'error');ok(error.html().includes('word-error'));error.click({action:'retry'});error.answer('Could I borrow an English textbook?');equal(error.state().session.answers[0].status,'correct');
+const restored=setup(error.store.get(KEY));restored.click({action:'resume'});equal(restored.state().session.answers[0].status,'correct');
+const arch=setup(JSON.stringify({progressRevision:5,completedIds:ui.all.map(d=>d.id)}));
+for(let i=0;i<7;i++){arch.click({action:'home'});arch.click({pilot:'pilot-library'});for(const t of arch.all[1].turns){arch.answer(t.best);arch.click({action:'next'});}}
+equal(arch.state().history.length,6);equal(new Set(arch.state().history.map(h=>h.runId)).size,6);
+const before=JSON.stringify(arch.state().session),latest=arch.state().history.at(-1);arch.click({historyView:latest.runId});arch.click({historyCopy:latest.runId});equal(JSON.stringify(arch.state().session),before);ok(arch.el('copy-text').value.includes(latest.answers[0].answer));
+const migration=setup(JSON.stringify({progressRevision:4,completedIds:['pilot-friend-evening','pilot-library'],journal:[{answer:'old',task:'task'}]}));ok(migration.state().completedIds.includes('pilot-friend-evening'));ok(!migration.state().completedIds.includes('pilot-library'));equal(migration.state().journal.length,1);
+const old=setup(JSON.stringify({session:{id:'coffee-to-go',contentRevision:5,index:0,answers:[]}}));equal(old.state().session,null);
+const unknown=setup();unknown.click({pilot:'pilot-library'});unknown.answer('Can a flying whale bring a book?');equal(unknown.state().session.answers[0].status,'unknown');equal(unknown.state().journal.length,1);
+const injection=setup();injection.click({pilot:'pilot-library'});injection.answer('<img src=x onerror=alert(1)>');ok(!injection.html().includes('<img src=x'));
+const update=setup();update.click({action:'update'});ok(update.window.location.href.includes('update='));
+const file=setup();file.window.location.protocol='file:';file.click({action:'update'});equal(file.window.location.href,'https://dmshad.github.io/english/');
+const noStorage=setup(null,true);ok(noStorage.html().includes('Хранилище браузера недоступно'));noStorage.click({pilot:'pilot-library'});noStorage.click({action:'reveal'});noStorage.click({action:'next'});ok(noStorage.html().includes('2 из 10'));
+// General application behavior remains covered after retiring the old content.
+const emptyLevel=setup();emptyLevel.click({level:'B2'});ok(emptyLevel.html().includes('data-action="start" disabled'));
+const draft=setup();draft.click({pilot:'pilot-library'});
+ok(draft.html().includes('<details><summary>Показать перевод</summary>'));draft.answer('');equal(draft.state().session.answers.length,0);
+draft.el('answer').value='My draft';draft.el('app').handlers.input({target:{id:'answer',value:'My draft'}});
+const resumeDraft=setup(draft.store.get(KEY));resumeDraft.click({action:'resume'});ok(resumeDraft.html().includes('>My draft</textarea>'));
+const journal=setup();journal.click({pilot:'pilot-library'});journal.answer('Unrecognised answer');journal.click({action:'retry'});journal.answer(journal.all[1].turns[0].best);
+equal(journal.state().journal.length,1);journal.click({action:'home'});journal.el('journal-button').handlers.click();ok(journal.el('journal-dialog').open);
+journal.el('clear-journal').handlers.click();equal(journal.el('clear-confirm').hidden,false);journal.el('confirm-clear').handlers.click();equal(journal.state().journal.length,0);
+const latestRun=arch.state().history.at(-1);arch.all[1].turns[0].best='NEW REFERENCE MUST NOT APPEAR';arch.click({historyView:latestRun.runId});ok(!arch.html().includes('NEW REFERENCE MUST NOT APPEAR'));
+const loaded=setup(arch.store.get(KEY));equal(loaded.state().history.length,6);equal(loaded.state().completedIds.length,2);
+const unseen=setup(JSON.stringify({progressRevision:5,completedIds:['pilot-friend-evening']}));unseen.change('dialogue-choice','pilot-friend-evening');unseen.click({action:'start'});equal(unseen.state().session.id,'pilot-library');
+unseen.answer(unseen.all[1].turns[0].best);ok(!unseen.state().completedIds.includes('pilot-library'));equal(unseen.state().history.length,1);
+const repeat=setup(JSON.stringify({progressRevision:5,completedIds:ui.all.map(d=>d.id)}));repeat.change('topic','visiting');repeat.change('dialogue-choice','pilot-friend-evening');repeat.click({action:'start'});equal(repeat.state().session.id,'pilot-friend-evening');
+const oldSeen=setup(JSON.stringify({seen:{'A1:random:long':ui.all.map(d=>d.id)}}));equal(oldSeen.state().completedIds.length,0);
+const incompatible=setup(JSON.stringify({progressRevision:4,session:{id:'pilot-library',contentRevision:4,index:3,answers:[]},journal:[{answer:'retained',task:'old'}],history:arch.state().history}));equal(incompatible.state().session,null);equal(incompatible.state().history.length,6);equal(incompatible.state().journal.length,1);
+const colors=setup();colors.click({pilot:'pilot-library'});colors.answer('Can I have a English textbook?');ok(colors.html().includes('word-error'));ok(colors.html().includes('word-correct'));colors.click({action:'home'});colors.click({historyView:colors.state().history.at(-1).runId});ok(colors.html().includes('word-error'));
+const cap=setup();cap.click({pilot:'pilot-library'});cap.answer(cap.all[1].turns[0].best);for(const match of cap.html().matchAll(/<details class="variants">([\s\S]*?)<\/details>/g))ok((match[1].match(/<li>/g)||[]).length<=10);
 const disconnected=setup();disconnected.navigator.onLine=false;disconnected.click({action:'update'});equal(disconnected.window.location.href,'https://dmshad.github.io/english/');
-// Each opened answer list, including those in history, has at most ten entries.
-const cap=setup();cap.change('dialogue-choice','window-table');cap.click({action:'start'});cap.answer(cap.all[1].turns[0].best);
-for(const match of cap.html().matchAll(/<details class="variants">([\s\S]*?)<\/details>/g))ok((match[1].match(/<li>/g)||[]).length<=10);
-const colors=setup();colors.click({pilot:'pilot-library'});colors.answer('Can I have a English textbook?');
-equal(colors.state().session.answers[0].status,'error');ok(colors.html().includes('word-error'));ok(colors.html().includes('word-correct'));
-colors.click({action:'next'});colors.click({action:'home'});colors.click({historyView:colors.state().history.at(-1).runId});ok(colors.html().includes('word-error'));
-console.log(`${checks} application-state checks passed (mock DOM; visual browser check still required).`);
+const corrupt=setup('{bad-json');ok(corrupt.html().includes('Твой следующий разговор'));
+console.log(checks+' application-state checks passed (mock DOM; visual browser check still required).');

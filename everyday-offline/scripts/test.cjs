@@ -4,7 +4,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const context = {globalThis: {}};
-for (const file of ['engine.js','content.js','content-stage1.js','content-ten.js','content-answers.js','structured.js','content-pilot.js','content-friend.js','content-intros.js']) vm.runInNewContext(fs.readFileSync(path.join(__dirname,'..',file),'utf8'), context);
+for (const file of ['engine.js','content.js','content-stage1.js','content-ten.js','content-answers.js','structured.js','content-pilot.js','content-friend.js','content-library.js','content-intros.js']) vm.runInNewContext(fs.readFileSync(path.join(__dirname,'..',file),'utf8'), context);
 const all = context.globalThis.DIALOGUES;
 const E = context.globalThis.OfflineEngine;
 let checks = 0;

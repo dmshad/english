@@ -3,7 +3,7 @@
   const $ = id => document.getElementById(id);
   const app = $('app');
   const E = window.OfflineEngine;
-  const dialogues = window.DIALOGUES;
+  const dialogues = window.DIALOGUES.filter(d=>d.checking==='construction');
   const KEY = 'everyday-offline-v1';
   const labels = {short: '4 реплики · прежняя версия', medium: '6 реплик · прежняя версия', long: '10 реплик'};
   const statuses = {correct: 'Верно', acceptable: 'Допустимо', error: 'Ошибка', unknown: 'Не распознано', revealed: 'Без ответа'};
@@ -83,7 +83,7 @@
       <div class="features"><span class="pill">Живой английский</span><span class="pill">Без интернета</span><span class="pill">Без таймера</span></div>
       <div class="sample"><small>В кафе это может звучать просто</small><p>“Small, please.”</p><small>Короткий ответ тоже бывает лучшим ответом.</small></div></div>
       <div class="setup-card"><h2>Твой следующий разговор</h2>
-      <div class="pilot-offer"><h3>Пилот новой проверки</h3><p class="hint">Два диалога с разбором конструкций, грамматики и известных ошибок. Остальные пока проверяются по прежней базе.</p><div class="actions">${dialogues.filter(d=>d.checking==='construction').map(d=>`<button class="quiet" data-pilot="${d.id}">${escape(d.title)}</button>`).join('')}</div></div>
+      <div class="pilot-offer"><h3>Пилот новой проверки</h3><p class="hint">Два диалога с разбором конструкций, грамматики и известных ошибок. Оба доступны для испытания.</p><div class="actions">${dialogues.filter(d=>d.checking==='construction').map(d=>`<button class="quiet" data-pilot="${d.id}">${escape(d.title)}</button>`).join('')}</div></div>
       ${previous ? `<div class="resume"><p><strong>${escape(previous.title)}</strong><br><small>${session.index === previous.turns.length ? 'Диалог завершен — результаты сохранены' : `Сохранено: ${session.index} из ${previous.turns.length} реплик`}</small></p><div class="actions"><button class="quiet" data-action="resume">${session.index === previous.turns.length ? 'Посмотреть результат' : 'Продолжить'}</button><button class="text-button" data-action="discard">Убрать сохраненный диалог</button></div></div>` : ''}
       <fieldset class="field"><legend>Уровень английского</legend><div class="levels">${['A1','A2','B1','B2','C1','C2'].map(level => `<button class="choice" data-level="${level}" aria-pressed="${settings.level === level}">${level}</button>`).join('')}</div></fieldset>
       <div class="field"><label for="topic">Тема</label><select id="topic"><option value="random" ${settings.topic === 'random' ? 'selected' : ''}>Случайная тема</option>${topics.map(([id,label]) => `<option value="${escape(id)}" ${settings.topic === id ? 'selected' : ''}>${escape(label)}</option>`).join('')}</select></div>
