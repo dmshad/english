@@ -6,7 +6,7 @@
   const dialogues = window.DIALOGUES;
   const KEY = 'everyday-offline-v1';
   const labels = {short: '4 реплики · прежняя версия', medium: '6 реплик · прежняя версия', long: '10 реплик'};
-  const statuses = {correct: 'Верно', acceptable: 'Допустимо', unknown: 'Не распознано', revealed: 'Без ответа'};
+  const statuses = {correct: 'Верно', acceptable: 'Допустимо', error: 'Ошибка', unknown: 'Не распознано', revealed: 'Без ответа'};
   const escape = text => String(text ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   let persistent = true;
   let saved = {};
@@ -83,13 +83,14 @@
       <div class="features"><span class="pill">Живой английский</span><span class="pill">Без интернета</span><span class="pill">Без таймера</span></div>
       <div class="sample"><small>В кафе это может звучать просто</small><p>“Small, please.”</p><small>Короткий ответ тоже бывает лучшим ответом.</small></div></div>
       <div class="setup-card"><h2>Твой следующий разговор</h2>
+      <div class="pilot-offer"><h3>Пилот новой проверки</h3><p class="hint">Два диалога с разбором конструкций, грамматики и известных ошибок. Остальные пока проверяются по прежней базе.</p><div class="actions">${dialogues.filter(d=>d.checking==='construction').map(d=>`<button class="quiet" data-pilot="${d.id}">${escape(d.title)}</button>`).join('')}</div></div>
       ${previous ? `<div class="resume"><p><strong>${escape(previous.title)}</strong><br><small>${session.index === previous.turns.length ? 'Диалог завершен — результаты сохранены' : `Сохранено: ${session.index} из ${previous.turns.length} реплик`}</small></p><div class="actions"><button class="quiet" data-action="resume">${session.index === previous.turns.length ? 'Посмотреть результат' : 'Продолжить'}</button><button class="text-button" data-action="discard">Убрать сохраненный диалог</button></div></div>` : ''}
       <fieldset class="field"><legend>Уровень английского</legend><div class="levels">${['A1','A2','B1','B2','C1','C2'].map(level => `<button class="choice" data-level="${level}" aria-pressed="${settings.level === level}">${level}</button>`).join('')}</div></fieldset>
       <div class="field"><label for="topic">Тема</label><select id="topic"><option value="random" ${settings.topic === 'random' ? 'selected' : ''}>Случайная тема</option>${topics.map(([id,label]) => `<option value="${escape(id)}" ${settings.topic === id ? 'selected' : ''}>${escape(label)}</option>`).join('')}</select></div>
       <p class="hint">В каждом диалоге — 10 твоих реплик.</p>
       ${choices.length ? `<div class="field"><label for="dialogue-choice">Ситуация</label><select id="dialogue-choice"><option value="">Случайная из ${available.length}${remaining ? ' непройденных' : ' — повторение'}</option>${choices.map(d => `<option value="${d.id}" ${selectedId === d.id ? 'selected' : ''} ${remaining && completedIds.has(d.id) ? 'disabled' : ''}>${escape(d.title)}${completedIds.has(d.id) ? ' · пройден' : ''}</option>`).join('')}</select><p class="hint">${remaining ? `Еще не пройдено: ${remaining} из ${choices.length}.` : 'Все диалоги этого выбора пройдены — можно повторять.'}</p></div>` : `<p class="notice">Для ${settings.level} в этом выборе диалогов пока нет. Выбери A1 или другую тему.</p>`}
       <button class="primary full" data-action="start" ${choices.length ? '' : 'disabled'}>Начать диалог</button>
-      <p class="setup-note">В подборке ${dialogues.length} ситуаций, ${topics.length} темы. Каждый диалог — 10 твоих реплик. Сначала предлагаются непройденные диалоги.</p></div></section>`;
+      <p class="setup-note">Диалогов в подборке: ${dialogues.length}. Тем: ${topics.length}. Каждый диалог — 10 твоих реплик. Сначала предлагаются непройденные диалоги.</p></div></section>`;
   }
   function begin(forceRandom = false) {
     const choices = availablePool();
@@ -109,8 +110,8 @@
   }
   function feedback(result, turn) {
     const message = result.status === 'unknown' ? 'В базе пока нет такого ответа. Возможно, он правильный. Попытка добавлена в журнал для разбора.' :
-      result.status === 'acceptable' ? result.note : result.status === 'revealed' ? 'Можно запомнить эту фразу и продолжить.' : 'Так естественно сказать в этой ситуации.';
-    return `<div class="feedback ${result.status}" role="status"><span class="status ${result.status}">${statuses[result.status]}</span><p class="explanation">${escape(message)}</p><h3>Как можно сказать</h3><p class="best" lang="en">${escape(turn.best)}</p>${variants(turn)}</div>`;
+      result.status === 'acceptable' || result.status === 'error' ? result.note : result.status === 'revealed' ? 'Можно запомнить эту фразу и продолжить.' : 'Так естественно сказать в этой ситуации.';
+    return `<div class="feedback ${result.status}" role="status"><span class="status ${result.status}">${statuses[result.status]}</span><p class="explanation">${escape(result.status==='unknown'&&result.note?result.note:message)}</p>${result.fragment?`<p class="diagnostic">Фрагмент: <span lang="en">${escape(result.fragment)}</span></p>`:''}${result.correction?`<p class="diagnostic">Вариант исправления: <span lang="en">${escape(result.correction)}</span></p>`:''}${Array.isArray(result.diagnostics)&&result.diagnostics.length>1?`<ul class="diagnostic-list">${result.diagnostics.map(d=>`<li>${escape(d.note)}</li>`).join('')}</ul>`:""}${Array.isArray(result.grammarNotes)?`<p class="hint">${result.grammarNotes.map(escape).join(" ")}</p>`:""}${Array.isArray(result.blocks)&&result.blocks.length?`<details class="parse-details"><summary>Что распознано</summary><ul>${result.blocks.map(b=>`<li>${escape(b.role)}: <span lang="en">${escape(b.text)}</span></li>`).join('')}</ul></details>`:''}<h3>Как можно сказать</h3><p class="best" lang="en">${escape(turn.best)}</p>${variants(turn)}</div>`;
   }
   function renderPractice() {
     const d = current();
@@ -120,10 +121,10 @@
     const record = session.answers[session.index];
     app.innerHTML = `<section class="practice">${storageNote()}<div class="practice-top"><button class="text-button" data-action="home">К выбору диалога</button><span class="progress-label">${done ? 'Завершено' : `Твоя реплика ${session.index + 1} из ${d.turns.length}`}</span></div>
       <div class="progress" role="progressbar" aria-label="Пройдено реплик" aria-valuemin="0" aria-valuemax="${d.turns.length}" aria-valuenow="${session.index}"><div class="progress-fill" style="width:${100 * session.index / d.turns.length}%"></div></div>
-      <div class="meta"><span class="pill">${d.level}</span><span class="pill">${d.topicLabel}</span><span class="pill">${labels[d.length]}</span></div><h1>${escape(d.title)}</h1><p class="context">${escape(d.context)}</p><p class="hint">${escape(d.tone)}</p>
+      <div class="meta"><span class="pill">${d.level}</span><span class="pill">${d.topicLabel}</span><span class="pill">${labels[d.length]}</span><span class="pill">${d.checking==='construction'?'Новая проверка':'Проверка по базе'}</span></div><h1>${escape(d.title)}</h1><p class="context">${escape(d.context)}</p><p class="hint">${escape(d.tone)}</p>
       <div class="conversation">${d.turns.slice(0, session.index).map((t, index) => {
         const a = session.answers[index];
-        return `<div class="exchange">${partner(t.en,t.ru,d.speaker,t.stage)}<div class="answer-history"><p class="speaker">Ты · <span class="status ${a.status}">${statuses[a.status]}</span></p><p class="original">${escape(t.task)}</p>${a.answer ? `<p lang="en">${escape(a.answer)}</p>` : '<p class="muted">Ответ пропущен</p>'}<p class="reference">Эталон: <span lang="en">${escape(t.best)}</span></p>${variants(t)}<button class="text-button" data-copy-turn="${index}">Скопировать фрагмент</button></div></div>`;
+        return `<div class="exchange">${partner(t.en,t.ru,d.speaker,t.stage)}<div class="answer-history"><p class="speaker">Ты · <span class="status ${a.status}">${statuses[a.status]}</span></p><p class="original">${escape(t.task)}</p>${a.answer ? `<p lang="en">${escape(a.answer)}</p>` : '<p class="muted">Ответ пропущен</p>'}<p class="reference">Эталон: <span lang="en">${escape(t.best)}</span></p>${a.note?`<p class="hint">${escape(a.note)}</p>`:""}${a.correction?`<p class="hint">Вариант исправления: <span lang="en">${escape(a.correction)}</span></p>`:""}${variants(t)}<button class="text-button" data-copy-turn="${index}">Скопировать фрагмент</button></div></div>`;
       }).join('')}
       ${done ? partner(d.ending.en,d.ending.ru,d.speaker) : `<div id="active-turn">${partner(d.turns[session.index].en,d.turns[session.index].ru,d.speaker,d.turns[session.index].stage)}
         <section class="answer-card"><label for="answer">Твоя реплика — переведи на английский</label><p class="task">${escape(d.turns[session.index].task)}</p>
@@ -136,7 +137,7 @@
   }
   function completion(d) {
     const counts = key => session.answers.filter(a => a.status === key).length;
-    return `<div class="completion" id="completion"><div class="eyebrow">Еще один разговор позади</div><h2>Диалог пройден</h2><p>Посмотри на удачные фразы. К ним можно вернуться в переписке выше.</p><div class="stats">${[['correct','Верно'],['acceptable','Допустимо'],['unknown','Не распознано'],['revealed','Без ответа']].map(([key,label]) => `<div class="stat"><strong>${counts(key)}</strong>${label}</div>`).join('')}</div><div class="actions"><button class="primary" data-action="another">Еще одна ситуация</button><button class="secondary" data-action="home">Изменить настройки</button></div></div>`;
+    return `<div class="completion" id="completion"><div class="eyebrow">Еще один разговор позади</div><h2>Диалог пройден</h2><p>Посмотри на удачные фразы. К ним можно вернуться в переписке выше.</p><div class="stats">${[['correct','Верно'],['acceptable','Допустимо'],['error','Ошибка'],['unknown','Не распознано'],['revealed','Без ответа']].map(([key,label]) => `<div class="stat"><strong>${counts(key)}</strong>${label}</div>`).join('')}</div><div class="actions"><button class="primary" data-action="another">Еще одна ситуация</button><button class="secondary" data-action="home">Изменить настройки</button></div></div>`;
   }
   function renderHistory() {
     screen = 'history';
@@ -149,7 +150,7 @@
     screen = 'history-entry';
     app.innerHTML = `<section class="practice"><div class="practice-top"><button class="text-button" data-action="history">К истории</button><button class="text-button" data-history-copy="${escape(entry.runId)}">Скопировать диалог</button></div><div class="meta"><span class="pill">${escape(d.level)}</span><span class="pill">${escape(d.topicLabel)}</span></div><h1>${escape(d.title)}</h1><p class="context">${escape(d.context)}</p><p class="hint">${done ? 'Завершенный диалог' : 'Сохраненные ответы незавершенного диалога'} · ${escape(new Date(entry.updatedAt).toLocaleString('ru-RU'))}</p><div class="conversation">${entry.answers.map((a,index) => {
       const t = d.turns[index];
-      return `<div class="exchange">${partner(t.en,t.ru,d.speaker,t.stage)}<div class="answer-history"><p class="speaker">Ты · <span class="status ${a.status}">${statuses[a.status]}</span></p><p class="original">${escape(t.task)}</p><p lang="en">${a.answer ? escape(a.answer) : 'Ответ пропущен'}</p><p class="reference">Эталон: <span lang="en">${escape(t.best)}</span></p>${a.note ? `<p class="hint">${escape(a.note)}</p>` : ''}${variants(t)}</div></div>`;
+      return `<div class="exchange">${partner(t.en,t.ru,d.speaker,t.stage)}<div class="answer-history"><p class="speaker">Ты · <span class="status ${a.status}">${statuses[a.status]}</span></p><p class="original">${escape(t.task)}</p><p lang="en">${a.answer ? escape(a.answer) : 'Ответ пропущен'}</p><p class="reference">Эталон: <span lang="en">${escape(t.best)}</span></p>${a.note ? `<p class="hint">${escape(a.note)}</p>` : ''}${a.correction?`<p class="hint">Вариант исправления: <span lang="en">${escape(a.correction)}</span></p>`:""}${variants(t)}</div></div>`;
     }).join('')}${done ? partner(d.ending.en,d.ending.ru,d.speaker) : ''}</div></section>`;
     window.scrollTo(0,0);
   }
@@ -170,7 +171,7 @@
   }
   function fragment(index, d = current(), source = session) {
     const t = d.turns[index], a = source.answers[index];
-    return `${t.stage ? t.stage + '\n' : ''}${d.speaker}: ${t.en}\nПеревод: ${t.ru}\nМоя заданная реплика: ${t.task}\nМой ответ: ${a?.answer || '(нет ответа)'}\nРезультат: ${a ? statuses[a.status] : 'Еще не проверен'}\nЭталон: ${t.best}\nЕстественные варианты: ${E.preferred(t).join(' / ')}`;
+    return `${t.stage ? t.stage + '\n' : ''}${d.speaker}: ${t.en}\nПеревод: ${t.ru}\nМоя заданная реплика: ${t.task}\nМой ответ: ${a?.answer || '(нет ответа)'}\nРезультат: ${a ? statuses[a.status] : 'Еще не проверен'}${a?.note ? "\nПояснение: "+a.note : ""}${a?.correction ? "\nВариант исправления: "+a.correction : ""}\nЭталон: ${t.best}\nЕстественные варианты: ${E.preferred(t).join(' / ')}`;
   }
   function dialogueText(index, d = current(), source = session) {
     const header = `Everyday · ${d.level} · ${d.topicLabel} · ${d.title}\nКонтекст: ${d.context}\nТон: ${d.tone}\n`;
@@ -204,6 +205,7 @@
   app.addEventListener('click', event => {
     const button = event.target.closest('button');
     if (!button) return;
+    if (button.dataset.pilot) {const d=dialogues.find(d=>d.id===button.dataset.pilot&&d.checking==='construction');if(d){settings.level=d.level;settings.topic=d.topic;selectedId=d.id;begin();}return;}
     if (button.dataset.historyView) { const entry = history.find(item => item.runId === button.dataset.historyView); if (entry) renderHistoryEntry(entry); return; }
     if (button.dataset.historyCopy) { const entry = history.find(item => item.runId === button.dataset.historyCopy); if (entry) copy(dialogueText(undefined,entry.dialogue,entry)); return; }
     if (button.dataset.level) { settings.level = button.dataset.level; selectedId = ''; save(); renderHome(); document.querySelector(`[data-level="${settings.level}"]`).focus(); return; }

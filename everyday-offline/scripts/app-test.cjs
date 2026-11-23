@@ -23,7 +23,7 @@ function setup(initial, blocked = false) {
     localStorage:{getItem(key){if (blocked) throw Error('blocked'); return store.get(key) || null;},setItem(key,value){if(blocked)throw Error('blocked');store.set(key,value);}},
     navigator:{onLine:true}, URL, setTimeout:()=>1, clearTimeout(){}, console
   });
-  for (const file of ['engine.js','content.js','content-stage1.js','content-ten.js','content-answers.js','app.js']) vm.runInContext(fs.readFileSync(path.join(__dirname,'..',file),'utf8'),context);
+  for (const file of ['engine.js','content.js','content-stage1.js','content-ten.js','content-answers.js','structured.js','content-pilot.js','app.js']) vm.runInContext(fs.readFileSync(path.join(__dirname,'..',file),'utf8'),context);
   const click = (data) => el('app').handlers.click({target:{closest:()=>({dataset:data,hasAttribute:name=>name==='data-copy-turn' && 'copyTurn' in data})}});
   const change = (id,value) => el('app').handlers.change({target:{id,value}});
   const answer = text => {el('answer').value = text; el('app').handlers.input({target:{id:'answer',value:text}}); el('app').handlers.submit({target:{id:'answer-form'},preventDefault(){}});};
@@ -136,4 +136,15 @@ const disconnected=setup();disconnected.navigator.onLine=false;disconnected.clic
 // Each opened answer list, including those in history, has at most ten entries.
 const cap=setup();cap.change('dialogue-choice','window-table');cap.click({action:'start'});cap.answer(cap.all[1].turns[0].best);
 for(const match of cap.html().matchAll(/<details class="variants">([\s\S]*?)<\/details>/g))ok((match[1].match(/<li>/g)||[]).length<=10);
+// Pilot verdicts survive retry, copy, history and reload; legacy dialogues stay explicitly separate.
+const pilot=setup();pilot.click({pilot:'pilot-friend-evening'});
+equal(pilot.state().session.id,'pilot-friend-evening');ok(pilot.html().includes('Новая проверка'));
+pilot.answer('Can I have an water?');equal(pilot.state().session.answers[0].status,'error');ok(pilot.html().includes('Фрагмент:'));
+pilot.click({action:'copy-all'});ok(pilot.el('copy-text').value.includes('Пояснение:'));ok(pilot.el('copy-text').value.includes('a/an'));
+pilot.click({action:'next'});pilot.click({action:'home'});const snapshot=pilot.state().history.at(-1);pilot.click({historyView:snapshot.runId});ok(pilot.html().includes('a/an'));
+const pilotRestored=setup(pilot.store.get(KEY));equal(pilotRestored.state().session.answers[0].status,'error');
+pilotRestored.click({action:'resume'});pilotRestored.answer('In a glass, please.');equal(pilotRestored.state().session.answers[1].status,'correct');
+const marked=setup();marked.click({pilot:'pilot-library'});marked.answer('Give me an English textbook, please.');equal(marked.state().session.answers[0].status,'acceptable');ok(marked.html().includes('слишком'));
+marked.click({action:'retry'});marked.answer('I was hoping I could borrow an English textbook.');equal(marked.state().session.answers[0].status,'correct');
+const unrecognized=setup();unrecognized.click({pilot:'pilot-friend-evening'});unrecognized.answer('Water for the whale who lives on Mars.');equal(unrecognized.state().session.answers[0].status,'unknown');equal(unrecognized.state().journal.length,1);
 console.log(`${checks} application-state checks passed (mock DOM; visual browser check still required).`);

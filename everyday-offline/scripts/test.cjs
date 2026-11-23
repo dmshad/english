@@ -2,13 +2,14 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const E = require('../engine.js');
+
 const context = {globalThis: {}};
-for (const file of ['engine.js','content.js','content-stage1.js','content-ten.js','content-answers.js']) vm.runInNewContext(fs.readFileSync(path.join(__dirname,'..',file),'utf8'), context);
+for (const file of ['engine.js','content.js','content-stage1.js','content-ten.js','content-answers.js','structured.js','content-pilot.js']) vm.runInNewContext(fs.readFileSync(path.join(__dirname,'..',file),'utf8'), context);
 const all = context.globalThis.DIALOGUES;
+const E = context.globalThis.OfflineEngine;
 let checks = 0;
 const verify = (value, expected) => { assert.equal(value, expected); checks++; };
-verify(all.length, 20);
+verify(all.length, 22);
 verify(new Set(all.map(d => d.id)).size, all.length);
 const counts = {short:4, medium:6, long:10};
 for (const d of all) {
@@ -107,3 +108,5 @@ verify(E.check('Could I please have a large coffee to go?',coffee).status,'unkno
 verify(E.check('Could I not have a small coffee to go?',coffee).status,'unknown');
 console.log(`${checks} checks passed: authored answers, grammar, meaning boundaries, random selection.`);
 require('./app-test.cjs');
+
+require('./pilot-test.cjs');

@@ -20,6 +20,7 @@
   }
   const formCache = new WeakMap();
   function naturalForms(turn) {
+    if (turn.assessment) return turn.natural;
     if (formCache.has(turn)) return formCache.get(turn);
     const forms = new Map();
     const add = text => forms.set(canonical(text, turn.rules || []), text);
@@ -43,9 +44,11 @@
   }
   function preferred(turn, limit = 10) {
     const seen = new Set();
-    return [turn.best,...turn.natural].filter(text => {const key=normalize(text);if(seen.has(key))return false;seen.add(key);return true;}).slice(0,limit);
+    const examples=Array.isArray(turn.displayExamples)?turn.displayExamples:turn.natural;
+    return [turn.best,...examples].filter(text => {const key=normalize(text);if(seen.has(key))return false;seen.add(key);return true;}).slice(0,limit);
   }
   function check(answer, turn) {
+    if (turn.assessment) return root.StructuredAssessment.check(answer, turn);
     const plain = normalize(answer);
     if (!plain) return {status: 'empty'};
     const rules = turn.rules || [];
