@@ -23,14 +23,14 @@ function setup(initial, blocked = false) {
     localStorage:{getItem(key){if (blocked) throw Error('blocked'); return store.get(key) || null;},setItem(key,value){if(blocked)throw Error('blocked');store.set(key,value);}},
     navigator:{onLine:true}, URL, setTimeout:()=>1, clearTimeout(){}, console
   });
-  for (const file of ['engine.js','content.js','content-stage1.js','content-ten.js','content-answers.js','structured.js','content-pilot.js','content-friend.js','content-library.js','content-intros.js','app.js']) vm.runInContext(fs.readFileSync(path.join(__dirname,'..',file),'utf8'),context);
+  for (const file of ['engine.js','content.js','content-stage1.js','content-ten.js','content-answers.js','structured.js','content-pilot.js','content-friend.js','content-library.js','content-intros.js','content-batch-a.js','content-batch-b.js','app.js']) vm.runInContext(fs.readFileSync(path.join(__dirname,'..',file),'utf8'),context);
   const click = (data) => el('app').handlers.click({target:{closest:()=>({dataset:data,hasAttribute:name=>name==='data-copy-turn' && 'copyTurn' in data})}});
   const change = (id,value) => el('app').handlers.change({target:{id,value}});
   const answer = text => {el('answer').value = text; el('app').handlers.input({target:{id:'answer',value:text}}); el('app').handlers.submit({target:{id:'answer-form'},preventDefault(){}});};
   return {el,click,change,answer,store,state:()=>JSON.parse(store.get(KEY)),html:()=>el('app').innerHTML,all:context.window.DIALOGUES.filter(d=>d.checking==='construction'),window:context.window,navigator:context.navigator};
 }
 
-const ui=setup();equal(ui.all.length,2);ok(!ui.html().includes('Кафе</option>'));
+const ui=setup();equal(ui.all.length,8);ok(!ui.html().includes('Кафе</option>'));
 ok(!ui.html().includes('по прежней базе'));
 for(const d of ui.all){const run=setup();run.click({pilot:d.id});equal(run.state().session.id,d.id);
 for(const t of d.turns){run.answer(t.best);run.click({action:'next'});}equal(run.state().session.index,10);ok(run.html().includes('Диалог пройден'));run.click({action:'copy-all'});ok(run.el('copy-text').value.includes(d.ending.en));}
@@ -57,8 +57,8 @@ const journal=setup();journal.click({pilot:'pilot-library'});journal.answer('Unr
 equal(journal.state().journal.length,1);journal.click({action:'home'});journal.el('journal-button').handlers.click();ok(journal.el('journal-dialog').open);
 journal.el('clear-journal').handlers.click();equal(journal.el('clear-confirm').hidden,false);journal.el('confirm-clear').handlers.click();equal(journal.state().journal.length,0);
 const latestRun=arch.state().history.at(-1);arch.all[1].turns[0].best='NEW REFERENCE MUST NOT APPEAR';arch.click({historyView:latestRun.runId});ok(!arch.html().includes('NEW REFERENCE MUST NOT APPEAR'));
-const loaded=setup(arch.store.get(KEY));equal(loaded.state().history.length,6);equal(loaded.state().completedIds.length,2);
-const unseen=setup(JSON.stringify({progressRevision:6,completedIds:['pilot-friend-evening']}));unseen.change('dialogue-choice','pilot-friend-evening');unseen.click({action:'start'});equal(unseen.state().session.id,'pilot-library');
+const loaded=setup(arch.store.get(KEY));equal(loaded.state().history.length,6);equal(loaded.state().completedIds.length,8);
+const unseen=setup(JSON.stringify({progressRevision:6,completedIds:ui.all.filter(d=>d.id!=='pilot-library').map(d=>d.id)}));unseen.change('dialogue-choice','pilot-friend-evening');unseen.click({action:'start'});equal(unseen.state().session.id,'pilot-library');
 unseen.answer(unseen.all[1].turns[0].best);ok(!unseen.state().completedIds.includes('pilot-library'));equal(unseen.state().history.length,1);
 const repeat=setup(JSON.stringify({progressRevision:6,completedIds:ui.all.map(d=>d.id)}));repeat.change('topic','visiting');repeat.change('dialogue-choice','pilot-friend-evening');repeat.click({action:'start'});equal(repeat.state().session.id,'pilot-friend-evening');
 const oldSeen=setup(JSON.stringify({seen:{'A1:random:long':ui.all.map(d=>d.id)}}));equal(oldSeen.state().completedIds.length,0);

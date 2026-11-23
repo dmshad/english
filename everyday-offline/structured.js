@@ -1,13 +1,13 @@
-/* Bounded, fully consuming construction parser for the two reviewed pilot dialogues.
+/* Bounded, fully consuming construction parser for reviewed authored dialogues.
  * No word-bag scoring. Unknown syntax never becomes a red verdict by default. */
 (function(root){
   'use strict';
-  const contractions={"haven't":"have not","i'm":'i am',"we're":'we are',"you're":'you are',"it's":'it is',"that's":'that is',"there's":'there is',"where's":'where is',"what's":'what is',"i'd":'i would',"we'd":'we would',"i'll":'i will',"we'll":'we will',"i've":'i have',"we've":'we have',"don't":'do not',"doesn't":'does not',"can't":'cannot',"isn't":'is not',"aren't":'are not',"won't":'will not',"wouldn't":'would not',"couldn't":'could not',"let's":'let us'};
-  function normalize(text){return String(text).normalize('NFKC').toLowerCase().replace(/[’‘]/g,"'").replace(/\b[a-z]+'[a-z]+\b/g,w=>contractions[w]||w).replace(/[^a-z0-9'\s]/g,' ').replace(/\s+/g,' ').trim();}
+  const contractions={"you've":"you have","they're":"they are","wasn't":"was not","weren't":"were not","didn't":"did not","haven't":"have not","i'm":'i am',"we're":'we are',"you're":'you are',"it's":'it is',"that's":'that is',"there's":'there is',"where's":'where is',"what's":'what is',"i'd":'i would',"we'd":'we would',"i'll":'i will',"we'll":'we will',"i've":'i have',"we've":'we have',"don't":'do not',"doesn't":'does not',"can't":'cannot',"isn't":'is not',"aren't":'are not',"won't":'will not',"wouldn't":'would not',"couldn't":'could not',"let's":'let us'};
+  function normalize(text,frame){return String(text).normalize('NFKC').toLowerCase().replace(/[’‘]/g,"'").replace(/\b(i|we|you|he|she|they)'d better\b/g,'$1 had better').replace(/\b[a-z]+'[a-z]+\b/g,w=>contractions[w]||w).replace(/\b([a-z]+)'s\b/g,(w,stem)=>frame?.beContractions?.includes(stem)?stem+' is':w).replace(/[^a-z0-9'\s]/g,' ').replace(/\s+/g,' ').trim();}
   function edges(text){
     let core=text;const blocks=[];
     const take=(re,role,last=false)=>{const m=core.match(re);if(!m)return false;blocks.push({role,text:m[0].trim()});core=last?core.slice(0,m.index).trim():core.slice(m[0].length).trim();return true;};
-    for(let i=0;i<3;i++){if(!take(/^(?:yes|yeah|yep|yup|sure|okay|ok|of course|certainly|absolutely|all right)\b\s*/,'Подтверждение'))break;}
+    for(let i=0;i<3;i++){if(!take(/^(?:yes|yeah|yep|yup|sure|okay|ok|of course|certainly|absolutely|all right|alright)\b\s*/,'Подтверждение'))break;}
     for(let i=0;i<3;i++){if(!take(/\s*\b(?:please|thank you(?: very much| so much)?|thanks(?: a lot| so much)?)$/,'Вежливость',true))break;}
     take(/^(?:thanks(?: a lot| so much)?|thank you(?: very much| so much)?)\s+/,'Вежливость');
     take(/^please\s+/,'Вежливость');
@@ -289,15 +289,19 @@
   ];
   function evaluate(answer,turn){
     const frame=turn.assessment;
-    let text=normalize(answer);
-    if(frame.kind==='tv'||frame.family==='comedy')text=text.replace(/^lets (?=(?:watch|see|go|choose|pick)\b)/,'let us ');
+    let text=normalize(answer,frame);
+    if(frame.allowLets)text=text.replace(/^lets\s+/,'let us ');
+    else if(frame.kind==='tv'||frame.family==='comedy')text=text.replace(/^lets (?=(?:watch|see|go|choose|pick)\b)/,'let us ');
     if(!String(answer).trim())return {status:'empty'};
     if(!text||/\p{L}/u.test(String(answer).replace(/[a-z]/gi,'')))return {...unknown('неподдерживаемые буквы или фрагмент ответа'),method:'construction',assessmentVersion:'pilot-1'};
     const e=edges(text);
+    const plain=e.core.replace(/^((?:can|could|may|might|would|will) (?:i|we|you)) please /,'$1 ');
+    if(plain!==e.core){e.core=plain;e.polite=true;e.blocks.push({role:'Вежливость',text:'please'});}
+    if(frame.rejectAffirmed&&e.affirmed&&!/^no\b/.test(e.core))return {...unknown('подтверждение в начале противоречит требуемому отказу',e.blocks),method:'construction'};
     let result=parse(e.core,frame,e.blocks,e.polite,e.affirmed);
     if(!result||result.status==='unknown'){
       // Whole-answer examples are a safe fallback, never a bag-of-words match.
-      if(turn.natural.some(a=>normalize(a)===text))result=good([...e.blocks,{role:'Формулировка',text:e.core||text}]);
+      if(turn.natural.some(a=>normalize(a,frame)===text))result=good([...e.blocks,{role:'Формулировка',text:e.core||text}]);
       else for(const [pattern,replacement,code,note] of repairs){
         if(!pattern.test(e.core))continue;
         const fixed=e.core.replace(pattern,replacement),parsed=parse(fixed,frame,e.blocks,e.polite,e.affirmed);
@@ -309,14 +313,19 @@
   function check(answer,turn){
     const result=evaluate(answer,turn);
     const tokens=[...String(answer).matchAll(/[a-z]+(?:['’][a-z]+)?|[0-9]+/gi)].map(m=>({start:m.index,end:m.index+m[0].length,text:m[0],color:result.status==='unknown'?'neutral':'correct'}));
-    const units=tokens.flatMap((t,i)=>normalize(t.text).split(' ').map(word=>({word,index:i})));
+    const units=tokens.flatMap((t,i)=>normalize(t.text,turn.assessment).split(' ').map(word=>({word,index:i})));
     const locate=fragment=>{const words=normalize(fragment).split(' ');for(let i=0;i<=units.length-words.length;i++)if(words.every((w,j)=>units[i+j].word===w))return [...new Set(units.slice(i,i+words.length).map(u=>u.index))];return [];};
     const insertions=[];
     if(result.status==='error')for(const d of result.diagnostics||[result]){
       let ids=locate(d.fragment);
       if(d.code==='missing-determiner'||d.code==='missing-of'){
-        const target=d.code==='missing-of'?ids.find(i=>normalize(tokens[i].text)==='water'):ids[0];
-        if(target!==undefined)insertions.push({at:tokens[target].start,label:d.code==='missing-of'?'of':'a/an',note:d.note});
+        const target=d.code==='missing-of'?(ids.find(i=>normalize(tokens[i].text)==='water')??ids.at(-1)):ids[0];
+        let label=d.code==='missing-of'?'of':'a/an';
+        if(d.code==='missing-determiner'){
+          const corrected=normalize(d.correction||'').split(' '),fragment=normalize(d.fragment).split(' ');
+          for(let j=1;j<corrected.length;j++)if(fragment.every((w,k)=>corrected[j+k]===w)&&/^(?:a|an|the|my|your|our|this|that)$/.test(corrected[j-1])){label=corrected[j-1];break;}
+        }
+        if(target!==undefined)insertions.push({at:tokens[target].start,label,note:d.note});
         continue;
       }
       const focus={ 'a-an':['a','an'],'missing-plural':['plate','knife','glass','bottle','week'],'singular-determiner-plural':['plates','knives','glasses','bottles','textbooks'],'watch-tv':['see','look'],'modal-form':['has','having'],'opposite-intent':['no','not','like','love','enjoy','full','many','few'],'wrong-choice':['space'],'wrong-place':['on','in','behind','at'],'wrong-quantity':['one','two','three','four','1','2','3','4'] }[d.code];
@@ -329,7 +338,7 @@
       if(!ids.length)ids=tokens.map((_,i)=>i);
       for(const i of ids){tokens[i].color='acceptable';tokens[i].note=result.note;}
     }
-    return {...result,annotations:tokens,insertions,orthographyNote:/^lets\s+(?:watch|see|go|choose|pick)\b/i.test(String(answer))?'Разговорное lets принимается без снижения оценки; стандартное написание — let’s.':null,assessmentVersion:'pilot-3'};
+    return {...result,annotations:tokens,insertions,orthographyNote:(turn.assessment.allowLets?/^\s*lets\s+/i:/^lets\s+(?:watch|see|go|choose|pick)\b/i).test(String(answer))?'Разговорное lets принимается без снижения оценки; стандартное написание — let’s.':null,assessmentVersion:'pilot-3'};
   }
   root.StructuredAssessment={check,normalize,nounPhrase,request};
   if(typeof module!=='undefined')module.exports=root.StructuredAssessment;

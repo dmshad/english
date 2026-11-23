@@ -1,0 +1,86 @@
+// Independent reviewer probes, written after reading the six conversations.
+// These are separate from the content authors' natural/cases examples.
+const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),assert=require('node:assert/strict');
+const context={globalThis:{DIALOGUES:[]}};
+for(const name of ['engine.js','structured.js','content-batch-a.js','content-batch-b.js'])vm.runInNewContext(fs.readFileSync(path.join(__dirname,'..',name),'utf8'),context);
+const {DIALOGUES,OfflineEngine:E}=context.globalThis;let checks=0;const failures=[];
+function probe(id,turn,expected,answers){
+  const t=DIALOGUES.find(d=>d.id===id).turns[turn-1];
+  for(const answer of answers){const r=E.check(answer,t);checks++;if(expected==='reject'?!['error','unknown'].includes(r.status):r.status!==expected)failures.push({id,turn,answer,expected,actual:r.status,note:r.note});}
+}
+probe('batch-shoes',1,'correct',['I need some comfy shoes for walking.']);
+probe('batch-shoes',2,'correct',['I wear an eight, usually.']);
+probe('batch-shoes',2,'error',['Usually a eight.']);
+probe('batch-shoes',3,'correct',['Can I sit somewhere?','Is there a place to sit?']);
+probe('batch-shoes',4,'correct',['These feel really tight.']);
+probe('batch-shoes',5,'correct',['Have you got a size bigger?']);
+probe('batch-shoes',6,'correct',['They feel much more comfortable.']);
+probe('batch-shoes',6,'error',['They feels much better.','This pair are much better.']);
+probe('batch-shoes',7,'error',['The black ones will matches my jacket.','The black ones goes with my jacket.']);
+probe('batch-shoes',8,'correct',['That’s too pricey. Do you have a cheaper pair?']);
+probe('batch-shoes',9,'correct',['This pair is comfy too. I’ll take these.']);
+probe('batch-shoes',10,'correct',['No, I have my bag with me.']);
+probe('batch-shoes',10,'reject',['Yes, I have a bag with me.']);
+probe('batch-cat',1,'correct',['What does it look like?']);
+probe('batch-cat',2,'correct',['I saw your cat in the parking lot.']);
+probe('batch-cat',3,'correct',['About ten minutes back.']);
+probe('batch-cat',4,'correct',['She’s underneath that blue car.']);
+probe('batch-cat',5,'correct',['I’ll get food for her.','I’ll bring food.']);
+probe('batch-cat',6,'correct',['Yes, I have fish at home.']);
+probe('batch-cat',7,'correct',['She’s scared. Don’t run after her!']);
+probe('batch-cat',8,'correct',['No, I’ve already shut the gate.']);
+probe('batch-cat',8,'reject',['Yes, I closed the gate.']);
+probe('batch-cat',9,'correct',['I’ll hold that bowl.']);
+probe('batch-cat',10,'correct',['Don’t forget to close your window.']);
+probe('batch-cat',10,'reject',['Make sure you close.','Make sure the window is closed the window.']);
+probe('batch-park',1,'correct',['At those red gates.']);
+probe('batch-park',2,'correct',['We’re at different gates, then.']);
+probe('batch-park',3,'correct',['I’d rather walk over to the lake.']);
+probe('batch-park',4,'correct',['It isn’t open.']);
+probe('batch-park',5,'correct',['Is that a long walk?']);
+probe('batch-park',6,'correct',['Great, my bag is heavy.']);
+probe('batch-park',7,'correct',['Some food for the picnic.']);
+probe('batch-park',8,'correct',['Yes, but I don’t see you.']);
+probe('batch-park',9,'correct',['I can see you! I’m on my way.']);
+probe('batch-park',10,'correct',['Lets sit under that tree in the shade.','Let’s sit in the shade of that tree.']);
+probe('batch-bus',1,'correct',['Yes, I’d like a swim.','Yeah I wanna go swimming.']);
+probe('batch-bus',2,'correct',['Oh, I’m heading the wrong way.','I need to go in the other direction.']);
+probe('batch-bus',3,'correct',['How far away is it from here?']);
+probe('batch-bus',4,'correct',['Where is the stop going the other way?']);
+probe('batch-bus',5,'correct',['Do I need to take bus number four?']);
+probe('batch-bus',5,'not-error',['I need the number four bus?']);
+probe('batch-bus',6,'correct',['I’ve got a ticket.']);
+probe('batch-bus',7,'correct',['How long is the bus ride to the pool?']);
+probe('batch-bus',8,'correct',['Yes I’m afraid that I might be late.']);
+probe('batch-bus',9,'correct',['Then I’ll have to hurry.']);
+probe('batch-bus',9,'reject',['I had better not hurry.']);
+probe('batch-bus',9,'correct',["I'd better hurry.",'I had better hurry.']);
+probe('batch-bus',9,'error',['I would better hurry.']);
+probe('batch-bus',10,'correct',['Thank you so much for helping me!','Thanks, that really helped.']);
+probe('batch-hotel',1,'correct',['My reservation is under the name of Anna.','I booked under Anna.']);
+probe('batch-hotel',2,'correct',['No, I have booked a room for two nights.','No, it should be two nights.']);
+probe('batch-hotel',3,'correct',['Here you are, my passport.']);
+probe('batch-hotel',4,'correct',['My suitcase is really heavy. Have you got a lift?']);
+probe('batch-hotel',5,'correct',['My key won’t open the door.','I can’t get the door open with this key.']);
+probe('batch-hotel',6,'correct',['The light’s red. I still can’t get in.']);
+probe('batch-hotel',7,'correct',['Now it works!']);
+probe('batch-hotel',8,'correct',['Cold in here.']);
+probe('batch-hotel',9,'correct',['Could you show me how I turn on the heater?']);
+probe('batch-hotel',9,'error',['Could you show me how to switch on it?']);
+probe('batch-hotel',10,'correct',['Can I get an extra blanket?']);
+probe('batch-event',1,'correct',['Sure, what’s first?']);
+probe('batch-event',2,'correct',['We’ve only got eight chairs here.','There are just eight here.']);
+probe('batch-event',3,'correct',['Where are the spare chairs kept?']);
+probe('batch-event',4,'correct',['The door won’t open. It seems locked.']);
+probe('batch-event',5,'correct',['These are heavy. Can you give me a hand?','They’re heavy. Please help me carry them.']);
+probe('batch-event',6,'correct',['From the back I can’t see the screen.']);
+probe('batch-event',7,'correct',['Why not move the table by the wall?','Lets move the table to the wall.']);
+probe('batch-event',8,'correct',['My phone’s in the bag.','In my bag.']);
+probe('batch-event',9,'correct',['Can you take a photo of me by those chairs?']);
+probe('batch-event',9,'not-error',['Can you make a photo of me by the chairs?']);
+probe('batch-event',10,'correct',['Show me it first.','Can I have a look first?']);
+// All six grammars must consume the whole input, rather than bless the known prefix.
+for(const d of DIALOGUES){assert.equal(d.turns.length,10);for(const t of d.turns){const r=E.check(t.best+' but actually I mean the opposite',t);checks++;if(['correct','acceptable'].includes(r.status))failures.push({id:d.id,task:t.task,answer:t.best+' but actually I mean the opposite',actual:r.status,expected:'reject'});}}
+const unresolved=failures.filter(f=>f.expected!=='not-error'||f.actual==='error');
+assert.deepEqual(unresolved,[],JSON.stringify(unresolved,null,2));
+console.log(`${checks} independent reviewer checks passed: alternative constructions, likely errors, protected intent and consumed input.`);

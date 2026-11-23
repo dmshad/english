@@ -4,12 +4,12 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const context = {globalThis: {}};
-for (const file of ['engine.js','content.js','content-stage1.js','content-ten.js','content-answers.js','structured.js','content-pilot.js','content-friend.js','content-library.js','content-intros.js']) vm.runInNewContext(fs.readFileSync(path.join(__dirname,'..',file),'utf8'), context);
+for (const file of ['engine.js','content.js','content-stage1.js','content-ten.js','content-answers.js','structured.js','content-pilot.js','content-friend.js','content-library.js','content-intros.js','content-batch-a.js','content-batch-b.js']) vm.runInNewContext(fs.readFileSync(path.join(__dirname,'..',file),'utf8'), context);
 const all = context.globalThis.DIALOGUES;
 const E = context.globalThis.OfflineEngine;
 let checks = 0;
 const verify = (value, expected) => { assert.equal(value, expected); checks++; };
-verify(all.length, 22);
+verify(all.length, 28);
 verify(new Set(all.map(d => d.id)).size, all.length);
 const counts = {short:4, medium:6, long:10};
 for (const d of all) {
@@ -110,3 +110,6 @@ console.log(`${checks} checks passed: authored answers, grammar, meaning boundar
 require('./app-test.cjs');
 
 require('./pilot-test.cjs');
+
+require('./batch-test.cjs');
+require('./batch-independent-test.cjs');
