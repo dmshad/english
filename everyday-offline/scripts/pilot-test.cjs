@@ -152,8 +152,12 @@ libCase(2,'error',['I beginner']);
 libCase(3,'correct',['May I borrow this book?','Is it okay to take it home?','Could I take it with me?']);
 libCase(3,'error',['Can I takes it home']);
 libCase(4,'correct',["No, this is my first visit","I haven't got one. It's my first time here","No, not yet. This is my first visit"]);
-libCase(7,'correct',['Did you say two weeks?','For a fortnight','Two weeks, right?']);
-libCase(7,'error',['Two week','For one week']);
+libCase(6,'correct',['No, can I borrow yours?',"I don't have a pen. Could I use yours?",'Could you let me use your pen?','May I borrow a pen?']);
+libCase(6,'error',['Can I borrow pen?','Can I use your?','May I lend your pen?']);
+libCase(6,'unknown',['No','I have a blue pen','Can I borrow your book?']);
+libCase(7,'correct',['May I keep it a bit longer?','Can I keep this book for more than two weeks?','Could I renew the loan?','Would it be okay if I keep it longer?']);
+libCase(7,'error',['Can I keep it more longer?','Could I keeping the book longer?']);
+libCase(7,'unknown',['Two weeks?','Can I keep it for one week?','I cannot keep it longer']);
 libCase(8,'correct',['Is there somewhere quiet to read?','Can I sit somewhere quiet?','Could you tell me where I can read quietly?']);
 libCase(8,'error',['Where I can read quietly']);
 libCase(8,'unknown',['Is there a quiet place where my dog can fly?']);
@@ -169,3 +173,15 @@ libCase(4,'unknown',['No','No not yet','I have not got one','Yes this is my tent
 libCase(8,'error',['Is there quiet place to read','Is there a somewhere quiet to read']);
 libCase(8,'correct',['May I read somewhere quiet','Is there anywhere quiet where I can read','Do you have a quiet corner to read']);
 libCase(9,'error',['I will reading here for a while','I am going read here']);
+
+libCase(8,'correct',['Can I find a quiet place to read here?','Could I find somewhere quiet to read in this library?','May I find a quiet corner here to read?']);
+libCase(8,'acceptable',['Can I find here a quiet place to read?','Could I find here a quiet corner to read?']);
+libCase(8,'unknown',['Can I find here a quiet place to read and have a party?','Can I not find a quiet place to read here?','Can I find a noisy place to read here?']);
+const placed=E.check('Can I find here a quiet place to read?',lib.turns[8]);
+assert.deepEqual(Array.from(placed.annotations.filter(t=>t.color==='acceptable'),t=>t.text),['here']);
+assert.ok(placed.annotations.filter(t=>t.text!=='here').every(t=>t.color==='correct'));
+assert.ok(placed.note&&placed.correction);
+assert.ok(lib.turns.every(t=>!/^a[- ]n[- ]n[- ]a[.!]?$/i.test(t.task)&&t.task!=='Две недели?'));
+
+for(const d of DIALOGUES.filter(d=>d.checking==='construction'))for(const t of d.turns)assert.ok(/[а-яё]/i.test(t.task),'Translation task must contain Russian: '+t.task);
+console.log('Editorial regressions, screenshot wording, style spans and revised library turns passed.');

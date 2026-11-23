@@ -174,6 +174,7 @@
     if(frame.kind==='conversation'){
       const semantic=family(s,frame,blocks);if(semantic)return semantic;
       if((frame.patterns||[]).some(p=>new RegExp('^(?:'+p+')$').test(s))&&(s||affirmed))return good([...blocks,{role:'Смысл реплики',text:s||'подтверждение'}]);
+      for(const a of frame.acceptablePatterns||[])if(new RegExp('^(?:'+a.pattern+')$').test(s))return {...good([...blocks,{role:'Смысл реплики',text:s}]),status:'acceptable',fragment:a.fragment,note:a.note,correction:a.correction};
       for(const e of frame.errors||[])if(new RegExp('^(?:'+e.pattern+')$').test(s))return bad(e.code||'conversation-grammar',e.fragmentPattern?s.match(new RegExp(e.fragmentPattern))?.[0]:e.fragment,e.note,e.correction,blocks);
       return null;
     }
@@ -324,7 +325,7 @@
     }
     if(result.status==='error'&&!insertions.length&&!tokens.some(t=>t.color==='error'))for(const token of tokens)token.color='neutral';
     if(result.status==='acceptable'){
-      let ids=tokens.map((_,i)=>i).filter(i=>/^(give|gimme|bring|pass|request|some)$/i.test(tokens[i].text));
+      let ids=result.fragment?locate(result.fragment):tokens.map((_,i)=>i).filter(i=>/^(give|gimme|bring|pass|request|some)$/i.test(tokens[i].text));
       if(!ids.length)ids=tokens.map((_,i)=>i);
       for(const i of ids){tokens[i].color='acceptable';tokens[i].note=result.note;}
     }
