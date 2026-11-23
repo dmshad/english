@@ -124,10 +124,57 @@
     return result;
   }
   const yes=/^(?:(?:yes|yeah|yep|yup|sure|okay|ok|of course|certainly|absolutely) ?)?(?:that is (?:great|fine|perfect|good|right)|it is (?:great|fine|perfect|good)|(?:great|fine|perfect|good|lovely)|that works(?: for me)?|that sounds (?:good|great|fine)|sounds (?:good|great|fine)|it works for me|that would be (?:great|nice)|i would like that|that is (?:quite|absolutely) fine)$/;
+  function family(s,frame,blocks){
+    if(!frame.family)return null;
+    const original=s;s=s.replace(/^(?:i think|i guess|probably) /,'');
+    const part=[...blocks,{role:'Смысл и конструкция',text:original}];
+    if(frame.family==='bus-delay'){
+      if(/^(?:(?:the|my) bus|it) (?:was delayed|got delayed|was running late|ran late|arrived late|was late|came late)$/.test(s)||/^(?:the|my) bus got stuck in traffic$/.test(s))return good(part);
+    }
+    if(frame.family==='hunger'){
+      if(/^(?:i am |i feel )?(?:a bit |a little |quite |really |very |pretty |so )?(?:hungry|starving)$/.test(s)||/^(?:i could eat|i could eat something|i need some food)$/.test(s))return good(part);
+      if(/^(?:i am not hungry|not hungry|i am full)$/.test(s))return bad('opposite-intent',original,'По заданию вы голодны, а здесь говорится обратное.',frame.example,part);
+    }
+    if(frame.family==='help'){
+      if(/^(?:what (?:can|could|should) i (?:do|help with)|what do you need(?: me to do)?|what would you like me to do|how (?:can|could) i help|what needs doing|tell me what you need)$/.test(s))return good(part);
+    }
+    if(frame.family==='knife-location'){
+      if(/^(?:and )?(?:where (?:is|can i find) (?:the|a|my|your) knife|where are (?:your|the) knives|where do you keep (?:your|the) knives|do you have (?:a|any) knife|any idea where the knife is)$/.test(s))return good(part);
+      if(/^where is knife$/.test(s))return bad('missing-determiner','knife','В полном вопросе перед knife нужен определитель: the knife или a knife.',frame.example,part);
+    }
+    if(frame.family==='smell'){
+      if(/^(?:(?:it|that|the food|the pasta) )?smells (?:(?:really|very|so) )?(?:good|great|nice|delicious|amazing|wonderful|lovely|tasty)$/.test(s)||/^(?:it|that) has a (?:nice|lovely|good) smell$/.test(s))return good(part);
+    }
+    if(frame.family==='remote-location'){
+      if(/^(?:(?:it|the remote|the remote control) is |(?:look|check) )?(?:right |just )?(?:under|underneath|beneath) (?:a|the|this|that|your) book$/.test(s))return good(part);
+      if(/^(?:(?:it|the remote) is )?(?:on|in|behind) the book$/.test(s))return bad('wrong-place',original,'По заданию пульт под книгой, а не на ней, внутри или за ней.',frame.example,part);
+    }
+    if(frame.family==='enough'){
+      const quantity='(?:two|2)(?: plates)?';
+      if(new RegExp('^'+quantity+' (?:(?:is|are|should be|will be|would be|ought to be)(?: more than)? enough|(?:will|should|would) do(?: it)?)$').test(s)||/^(?:we|i) (?:just |only )?need (?:two|2)(?: plates)?$/.test(s)||/^(?:a couple|a pair)(?: of plates)? (?:is|should be|would be|will be) enough$/.test(s))return good(part);
+      if(/^(?:two|2)(?: plates)? (?:is|are)(?: not enough| too many| too few)$/.test(s))return bad('opposite-intent',original,'По заданию двух хватает; здесь сказано обратное или дано другое количество.',frame.example,part);
+      if(/^(?:one|three|four|1|3|4)(?: plates)? (?:is|are|should be|will be) enough$/.test(s))return bad('wrong-quantity',original,'По заданию хватает двух, а не другого количества.',frame.example,part);
+    }
+    if(frame.family==='dislike'){
+      s=s.replace(/^no(?: thanks| thank you)? /,'');
+      if(/^(?:i )?do not (?:really |particularly )?(?:like|enjoy) (?:cheese|it|the cheese)(?: (?:much|very much|at all))?$/.test(s)||/^(?:i am )?not (?:really )?(?:a fan of|into|keen on|big on) cheese$/.test(s)||/^cheese is not (?:really )?my thing$/.test(s)||/^(?:i would rather|i would prefer to) (?:skip|not have) (?:the )?cheese$/.test(s))return good(part);
+      if(/^(?:i )?(?:like|love|enjoy) cheese$/.test(s))return bad('opposite-intent',original,'В задании сыр не нравится, а здесь сказано, что нравится.',frame.example,part);
+      if(/^(?:i )?does not (?:really )?like cheese$/.test(s))return bad('subject-agreement','does not','С I нужно do not / don’t.',frame.example,part);
+    }
+    if(frame.family==='comedy'){
+      if(/^how about watch (?:a |the )?comedy$/.test(s))return bad('gerund-required','watch','После How about нужна форма watching.',frame.example,part);
+      if(/^i would rather to watch (?:a |the )?comedy$/.test(s))return bad('extra-to','to','После would rather здесь watch без to.',frame.example,part);
+      const movie='(?:(?:a|the|that|this) )?comedy(?: (?:film|movie))?';
+      if(new RegExp('^(?:let us (?:watch|see|go with|choose|pick)|(?:can|could|shall) we (?:watch|see)|i would (?:like|love|prefer) to (?:watch|see)|i want to (?:watch|see)|i would rather (?:watch|see)|i would (?:go for|choose|pick)|how about(?: (?:watching|seeing))?|what about(?: (?:watching|seeing))?) '+movie+'$').test(s)||new RegExp('^'+movie+' (?:sounds|would be) (?:good|great|fun|nice)$').test(s)||new RegExp('^'+movie+' (?:for me|please)$').test(s))return good(part);
+      if(/^(?:let us watch|i would like to watch) (?:the |a )?(?:space (?:film|movie)|film about space)$/.test(s))return bad('wrong-choice',original,'В задании выбрана комедия, а не фильм про космос.',frame.example,part);
+    }
+    return null;
+  }
   function parseCore(s,frame,blocks=[],polite=false,affirmed=false){
     if(frame.kind==='conversation'){
+      const semantic=family(s,frame,blocks);if(semantic)return semantic;
       if((frame.patterns||[]).some(p=>new RegExp('^(?:'+p+')$').test(s))&&(s||affirmed))return good([...blocks,{role:'Смысл реплики',text:s||'подтверждение'}]);
-      for(const e of frame.errors||[])if(new RegExp('^(?:'+e.pattern+')$').test(s))return bad('conversation-grammar',e.fragment,e.note,e.correction,blocks);
+      for(const e of frame.errors||[])if(new RegExp('^(?:'+e.pattern+')$').test(s))return bad(e.code||'conversation-grammar',e.fragment,e.note,e.correction,blocks);
       return null;
     }
     if(frame.kind==='object'){
@@ -240,7 +287,9 @@
     [/^my name anna$/,'my name is anna','missing-is','В полной фразе нужно my name is Anna.']
   ];
   function evaluate(answer,turn){
-    const text=normalize(answer),frame=turn.assessment;
+    const frame=turn.assessment;
+    let text=normalize(answer);
+    if(frame.kind==='tv'||frame.family==='comedy')text=text.replace(/^lets (?=(?:watch|see|go|choose|pick)\b)/,'let us ');
     if(!String(answer).trim())return {status:'empty'};
     if(!text||/\p{L}/u.test(String(answer).replace(/[a-z]/gi,'')))return {...unknown('неподдерживаемые буквы или фрагмент ответа'),method:'construction',assessmentVersion:'pilot-1'};
     const e=edges(text);
@@ -269,7 +318,7 @@
         if(target!==undefined)insertions.push({at:tokens[target].start,label:d.code==='missing-of'?'of':'a/an',note:d.note});
         continue;
       }
-      const focus={ 'a-an':['a','an'],'missing-plural':['plate','knife','glass','bottle','week'],'singular-determiner-plural':['plates','knives','glasses','bottles','textbooks'],'watch-tv':['see','look'],'modal-form':['has','having'],'opposite-intent':['no','not'],'wrong-quantity':['one','two','three','four','1','2','3','4'] }[d.code];
+      const focus={ 'a-an':['a','an'],'missing-plural':['plate','knife','glass','bottle','week'],'singular-determiner-plural':['plates','knives','glasses','bottles','textbooks'],'watch-tv':['see','look'],'modal-form':['has','having'],'opposite-intent':['no','not','like','love','enjoy','full','many','few'],'wrong-choice':['space'],'wrong-place':['on','in','behind','at'],'wrong-quantity':['one','two','three','four','1','2','3','4'] }[d.code];
       if(focus){const pool=ids.length?ids:tokens.map((_,i)=>i);const selected=pool.filter(i=>normalize(tokens[i].text).split(' ').some(w=>focus.includes(w)));if(selected.length)ids=selected;}
       for(const i of ids){tokens[i].color='error';tokens[i].note=d.note;}
     }
@@ -279,7 +328,7 @@
       if(!ids.length)ids=tokens.map((_,i)=>i);
       for(const i of ids){tokens[i].color='acceptable';tokens[i].note=result.note;}
     }
-    return {...result,annotations:tokens,insertions,assessmentVersion:'pilot-2'};
+    return {...result,annotations:tokens,insertions,orthographyNote:/^lets\s+(?:watch|see|go|choose|pick)\b/i.test(String(answer))?'Для «давай» стандартное написание — let’s. Пропуск апострофа сейчас отмечается отдельно и не меняет оценку смысла; правило штрафа еще не выбрано.':null,assessmentVersion:'pilot-3'};
   }
   root.StructuredAssessment={check,normalize,nounPhrase,request};
   if(typeof module!=='undefined')module.exports=root.StructuredAssessment;

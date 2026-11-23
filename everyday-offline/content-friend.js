@@ -1,7 +1,7 @@
 /* A whole story, rewritten after user feedback; not a sequence of service requests. */
 (function(root){
   const d=root.DIALOGUES.find(d=>d.id==='pilot-friend-evening');
-  root.APP_VERSION='0.6';root.PROGRESS_MIGRATIONS=[{revision:3,ids:root.REVISED_DIALOGUE_IDS},{revision:4,ids:['pilot-friend-evening']}];root.CONTENT_REVISION=4;root.REVISED_DIALOGUE_IDS=['pilot-friend-evening'];
+  root.APP_VERSION='0.7';root.PROGRESS_MIGRATIONS=[{revision:3,ids:root.REVISED_DIALOGUE_IDS},{revision:4,ids:['pilot-friend-evening']}];root.CONTENT_REVISION=4;root.REVISED_DIALOGUE_IDS=['pilot-friend-evening'];
   d.context='Ты приехал к другу на ужин. Автобус задержался, ты голоден. Помогаешь с пастой, а после ужина вы ищете пульт и выбираете, что посмотреть.';
   d.tone='Разговор друзей: короткие ответы, обычные сокращения, без обслуживания гостя как клиента.';
   const t=(en,ru,task,best,natural,patterns,errors=[],stage='')=>({en,ru,task,best,natural:[best,...natural],displayExamples:[best,...natural].slice(0,10),acceptable:[],rules:[],stage,assessment:{kind:'conversation',example:best,patterns,errors}});
@@ -17,5 +17,9 @@
     t('Yeah, but where’s the remote?','Да, но где пульт?','Он под книгой.','It’s under the book.', ['Under the book.','It’s underneath the book.','Look under the book.','The remote is under the book.','Under that book.'],['(?:(?:it|the remote) is |look )?(?:under|underneath) (?:the|that|your) book'],[{pattern:'(?:(?:it|the remote) is )?under book',note:'Здесь речь о конкретной книге: under the book.',fragment:'book',correction:'Under the book.'}]),
     t('Found it. There’s a comedy or a film about space.','Нашел. Есть комедия и фильм про космос.','Давай комедию.','Let’s watch the comedy.', ['The comedy.','How about the comedy?','I’d go for the comedy.','I’d like to watch the comedy.','Comedy sounds good.','Let’s go with the comedy.'],['(?:the )?comedy','let us (?:watch|go with) the comedy','how about (?:the )?comedy','i would (?:go for|like to watch|choose) the comedy','comedy sounds (?:good|great)','can we watch the comedy'])
   ];
+  for(const [i,name] of [[0,'bus-delay'],[1,'hunger'],[2,'help'],[3,'knife-location'],[6,'smell'],[8,'remote-location']])d.turns[i].assessment.family=name;
+  d.turns[3].assessment.patterns=d.turns[3].assessment.patterns.map(p=>p.replace('(?:the |a |my )?','(?:the |a |my )'));
+  d.turns[8].assessment.errors[0].code='missing-determiner';
+  d.turns[4].assessment.family='enough';d.turns[5].assessment.family='dislike';d.turns[9].assessment.family='comedy';
   d.ending={en:'Good choice. Here we go!',ru:'Хороший выбор. Включаю!'};
 })(typeof window!=='undefined'?window:globalThis);

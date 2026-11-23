@@ -21,7 +21,7 @@
 <body>
   <header class="site-header wrap">
     <a href="#" id="home-link" class="brand" aria-label="Everyday — на главную"><span class="brand-mark" aria-hidden="true">e.</span>everyday<span class="brand-sub">английский в диалогах</span></a>
-    <span class="offline-label">Оффлайн · v0.6</span>
+    <span class="offline-label">Оффлайн · v0.7</span>
   </header>
   <main class="wrap" id="app"></main>
   <footer class="wrap footer"><span>В своем темпе. Своими словами.</span><button class="text-button" id="journal-button">Нераспознанные ответы <span id="journal-count">0</span></button></footer>
@@ -1233,10 +1233,57 @@
     return result;
   }
   const yes=/^(?:(?:yes|yeah|yep|yup|sure|okay|ok|of course|certainly|absolutely) ?)?(?:that is (?:great|fine|perfect|good|right)|it is (?:great|fine|perfect|good)|(?:great|fine|perfect|good|lovely)|that works(?: for me)?|that sounds (?:good|great|fine)|sounds (?:good|great|fine)|it works for me|that would be (?:great|nice)|i would like that|that is (?:quite|absolutely) fine)$/;
+  function family(s,frame,blocks){
+    if(!frame.family)return null;
+    const original=s;s=s.replace(/^(?:i think|i guess|probably) /,'');
+    const part=[...blocks,{role:'Смысл и конструкция',text:original}];
+    if(frame.family==='bus-delay'){
+      if(/^(?:(?:the|my) bus|it) (?:was delayed|got delayed|was running late|ran late|arrived late|was late|came late)$/.test(s)||/^(?:the|my) bus got stuck in traffic$/.test(s))return good(part);
+    }
+    if(frame.family==='hunger'){
+      if(/^(?:i am |i feel )?(?:a bit |a little |quite |really |very |pretty |so )?(?:hungry|starving)$/.test(s)||/^(?:i could eat|i could eat something|i need some food)$/.test(s))return good(part);
+      if(/^(?:i am not hungry|not hungry|i am full)$/.test(s))return bad('opposite-intent',original,'По заданию вы голодны, а здесь говорится обратное.',frame.example,part);
+    }
+    if(frame.family==='help'){
+      if(/^(?:what (?:can|could|should) i (?:do|help with)|what do you need(?: me to do)?|what would you like me to do|how (?:can|could) i help|what needs doing|tell me what you need)$/.test(s))return good(part);
+    }
+    if(frame.family==='knife-location'){
+      if(/^(?:and )?(?:where (?:is|can i find) (?:the|a|my|your) knife|where are (?:your|the) knives|where do you keep (?:your|the) knives|do you have (?:a|any) knife|any idea where the knife is)$/.test(s))return good(part);
+      if(/^where is knife$/.test(s))return bad('missing-determiner','knife','В полном вопросе перед knife нужен определитель: the knife или a knife.',frame.example,part);
+    }
+    if(frame.family==='smell'){
+      if(/^(?:(?:it|that|the food|the pasta) )?smells (?:(?:really|very|so) )?(?:good|great|nice|delicious|amazing|wonderful|lovely|tasty)$/.test(s)||/^(?:it|that) has a (?:nice|lovely|good) smell$/.test(s))return good(part);
+    }
+    if(frame.family==='remote-location'){
+      if(/^(?:(?:it|the remote|the remote control) is |(?:look|check) )?(?:right |just )?(?:under|underneath|beneath) (?:a|the|this|that|your) book$/.test(s))return good(part);
+      if(/^(?:(?:it|the remote) is )?(?:on|in|behind) the book$/.test(s))return bad('wrong-place',original,'По заданию пульт под книгой, а не на ней, внутри или за ней.',frame.example,part);
+    }
+    if(frame.family==='enough'){
+      const quantity='(?:two|2)(?: plates)?';
+      if(new RegExp('^'+quantity+' (?:(?:is|are|should be|will be|would be|ought to be)(?: more than)? enough|(?:will|should|would) do(?: it)?)$').test(s)||/^(?:we|i) (?:just |only )?need (?:two|2)(?: plates)?$/.test(s)||/^(?:a couple|a pair)(?: of plates)? (?:is|should be|would be|will be) enough$/.test(s))return good(part);
+      if(/^(?:two|2)(?: plates)? (?:is|are)(?: not enough| too many| too few)$/.test(s))return bad('opposite-intent',original,'По заданию двух хватает; здесь сказано обратное или дано другое количество.',frame.example,part);
+      if(/^(?:one|three|four|1|3|4)(?: plates)? (?:is|are|should be|will be) enough$/.test(s))return bad('wrong-quantity',original,'По заданию хватает двух, а не другого количества.',frame.example,part);
+    }
+    if(frame.family==='dislike'){
+      s=s.replace(/^no(?: thanks| thank you)? /,'');
+      if(/^(?:i )?do not (?:really |particularly )?(?:like|enjoy) (?:cheese|it|the cheese)(?: (?:much|very much|at all))?$/.test(s)||/^(?:i am )?not (?:really )?(?:a fan of|into|keen on|big on) cheese$/.test(s)||/^cheese is not (?:really )?my thing$/.test(s)||/^(?:i would rather|i would prefer to) (?:skip|not have) (?:the )?cheese$/.test(s))return good(part);
+      if(/^(?:i )?(?:like|love|enjoy) cheese$/.test(s))return bad('opposite-intent',original,'В задании сыр не нравится, а здесь сказано, что нравится.',frame.example,part);
+      if(/^(?:i )?does not (?:really )?like cheese$/.test(s))return bad('subject-agreement','does not','С I нужно do not / don’t.',frame.example,part);
+    }
+    if(frame.family==='comedy'){
+      if(/^how about watch (?:a |the )?comedy$/.test(s))return bad('gerund-required','watch','После How about нужна форма watching.',frame.example,part);
+      if(/^i would rather to watch (?:a |the )?comedy$/.test(s))return bad('extra-to','to','После would rather здесь watch без to.',frame.example,part);
+      const movie='(?:(?:a|the|that|this) )?comedy(?: (?:film|movie))?';
+      if(new RegExp('^(?:let us (?:watch|see|go with|choose|pick)|(?:can|could|shall) we (?:watch|see)|i would (?:like|love|prefer) to (?:watch|see)|i want to (?:watch|see)|i would rather (?:watch|see)|i would (?:go for|choose|pick)|how about(?: (?:watching|seeing))?|what about(?: (?:watching|seeing))?) '+movie+'$').test(s)||new RegExp('^'+movie+' (?:sounds|would be) (?:good|great|fun|nice)$').test(s)||new RegExp('^'+movie+' (?:for me|please)$').test(s))return good(part);
+      if(/^(?:let us watch|i would like to watch) (?:the |a )?(?:space (?:film|movie)|film about space)$/.test(s))return bad('wrong-choice',original,'В задании выбрана комедия, а не фильм про космос.',frame.example,part);
+    }
+    return null;
+  }
   function parseCore(s,frame,blocks=[],polite=false,affirmed=false){
     if(frame.kind==='conversation'){
+      const semantic=family(s,frame,blocks);if(semantic)return semantic;
       if((frame.patterns||[]).some(p=>new RegExp('^(?:'+p+')$').test(s))&&(s||affirmed))return good([...blocks,{role:'Смысл реплики',text:s||'подтверждение'}]);
-      for(const e of frame.errors||[])if(new RegExp('^(?:'+e.pattern+')$').test(s))return bad('conversation-grammar',e.fragment,e.note,e.correction,blocks);
+      for(const e of frame.errors||[])if(new RegExp('^(?:'+e.pattern+')$').test(s))return bad(e.code||'conversation-grammar',e.fragment,e.note,e.correction,blocks);
       return null;
     }
     if(frame.kind==='object'){
@@ -1349,7 +1396,9 @@
     [/^my name anna$/,'my name is anna','missing-is','В полной фразе нужно my name is Anna.']
   ];
   function evaluate(answer,turn){
-    const text=normalize(answer),frame=turn.assessment;
+    const frame=turn.assessment;
+    let text=normalize(answer);
+    if(frame.kind==='tv'||frame.family==='comedy')text=text.replace(/^lets (?=(?:watch|see|go|choose|pick)\b)/,'let us ');
     if(!String(answer).trim())return {status:'empty'};
     if(!text||/\p{L}/u.test(String(answer).replace(/[a-z]/gi,'')))return {...unknown('неподдерживаемые буквы или фрагмент ответа'),method:'construction',assessmentVersion:'pilot-1'};
     const e=edges(text);
@@ -1378,7 +1427,7 @@
         if(target!==undefined)insertions.push({at:tokens[target].start,label:d.code==='missing-of'?'of':'a/an',note:d.note});
         continue;
       }
-      const focus={ 'a-an':['a','an'],'missing-plural':['plate','knife','glass','bottle','week'],'singular-determiner-plural':['plates','knives','glasses','bottles','textbooks'],'watch-tv':['see','look'],'modal-form':['has','having'],'opposite-intent':['no','not'],'wrong-quantity':['one','two','three','four','1','2','3','4'] }[d.code];
+      const focus={ 'a-an':['a','an'],'missing-plural':['plate','knife','glass','bottle','week'],'singular-determiner-plural':['plates','knives','glasses','bottles','textbooks'],'watch-tv':['see','look'],'modal-form':['has','having'],'opposite-intent':['no','not','like','love','enjoy','full','many','few'],'wrong-choice':['space'],'wrong-place':['on','in','behind','at'],'wrong-quantity':['one','two','three','four','1','2','3','4'] }[d.code];
       if(focus){const pool=ids.length?ids:tokens.map((_,i)=>i);const selected=pool.filter(i=>normalize(tokens[i].text).split(' ').some(w=>focus.includes(w)));if(selected.length)ids=selected;}
       for(const i of ids){tokens[i].color='error';tokens[i].note=d.note;}
     }
@@ -1388,7 +1437,7 @@
       if(!ids.length)ids=tokens.map((_,i)=>i);
       for(const i of ids){tokens[i].color='acceptable';tokens[i].note=result.note;}
     }
-    return {...result,annotations:tokens,insertions,assessmentVersion:'pilot-2'};
+    return {...result,annotations:tokens,insertions,orthographyNote:/^lets\s+(?:watch|see|go|choose|pick)\b/i.test(String(answer))?'Для «давай» стандартное написание — let’s. Пропуск апострофа сейчас отмечается отдельно и не меняет оценку смысла; правило штрафа еще не выбрано.':null,assessmentVersion:'pilot-3'};
   }
   root.StructuredAssessment={check,normalize,nounPhrase,request};
   if(typeof module!=='undefined')module.exports=root.StructuredAssessment;
@@ -1561,7 +1610,7 @@
 /* A whole story, rewritten after user feedback; not a sequence of service requests. */
 (function(root){
   const d=root.DIALOGUES.find(d=>d.id==='pilot-friend-evening');
-  root.APP_VERSION='0.6';root.PROGRESS_MIGRATIONS=[{revision:3,ids:root.REVISED_DIALOGUE_IDS},{revision:4,ids:['pilot-friend-evening']}];root.CONTENT_REVISION=4;root.REVISED_DIALOGUE_IDS=['pilot-friend-evening'];
+  root.APP_VERSION='0.7';root.PROGRESS_MIGRATIONS=[{revision:3,ids:root.REVISED_DIALOGUE_IDS},{revision:4,ids:['pilot-friend-evening']}];root.CONTENT_REVISION=4;root.REVISED_DIALOGUE_IDS=['pilot-friend-evening'];
   d.context='Ты приехал к другу на ужин. Автобус задержался, ты голоден. Помогаешь с пастой, а после ужина вы ищете пульт и выбираете, что посмотреть.';
   d.tone='Разговор друзей: короткие ответы, обычные сокращения, без обслуживания гостя как клиента.';
   const t=(en,ru,task,best,natural,patterns,errors=[],stage='')=>({en,ru,task,best,natural:[best,...natural],displayExamples:[best,...natural].slice(0,10),acceptable:[],rules:[],stage,assessment:{kind:'conversation',example:best,patterns,errors}});
@@ -1577,7 +1626,42 @@
     t('Yeah, but where’s the remote?','Да, но где пульт?','Он под книгой.','It’s under the book.', ['Under the book.','It’s underneath the book.','Look under the book.','The remote is under the book.','Under that book.'],['(?:(?:it|the remote) is |look )?(?:under|underneath) (?:the|that|your) book'],[{pattern:'(?:(?:it|the remote) is )?under book',note:'Здесь речь о конкретной книге: under the book.',fragment:'book',correction:'Under the book.'}]),
     t('Found it. There’s a comedy or a film about space.','Нашел. Есть комедия и фильм про космос.','Давай комедию.','Let’s watch the comedy.', ['The comedy.','How about the comedy?','I’d go for the comedy.','I’d like to watch the comedy.','Comedy sounds good.','Let’s go with the comedy.'],['(?:the )?comedy','let us (?:watch|go with) the comedy','how about (?:the )?comedy','i would (?:go for|like to watch|choose) the comedy','comedy sounds (?:good|great)','can we watch the comedy'])
   ];
+  for(const [i,name] of [[0,'bus-delay'],[1,'hunger'],[2,'help'],[3,'knife-location'],[6,'smell'],[8,'remote-location']])d.turns[i].assessment.family=name;
+  d.turns[3].assessment.patterns=d.turns[3].assessment.patterns.map(p=>p.replace('(?:the |a |my )?','(?:the |a |my )'));
+  d.turns[8].assessment.errors[0].code='missing-determiner';
+  d.turns[4].assessment.family='enough';d.turns[5].assessment.family='dislike';d.turns[9].assessment.family='comedy';
   d.ending={en:'Good choice. Here we go!',ru:'Хороший выбор. Включаю!'};
+})(typeof window!=='undefined'?window:globalThis);
+
+</script>
+  <script>
+/* Introductions contain the starting circumstances only. Events unfold in the dialogue. */
+(function(root){
+  const intros={
+    'coffee-to-go':'Ты зашел в кофейню по дороге на работу.',
+    'window-table':'Вы с другом пришли в кафе и стоите у входа.',
+    'no-tea':'Ты у стойки кафе. Только что попросил чай.',
+    'wrong-drink':'Ты сидишь в кафе. Твой заказ — кофе без молока.',
+    'breakfast':'Утро. Ты зашел один в небольшое кафе позавтракать.',
+    'waiting-friend':'Ты пришел в кафе раньше друга. В зале довольно шумно.',
+    'bread-sliced':'Ты зашел в пекарню за хлебом. В своей сумке несешь яйца.',
+    'school-snacks':'Ты покупаешь перекус для двух детей — Эммы и Лиама.',
+    'birthday-cake':'У Сэма шестой день рождения. Ты пришел в пекарню за тортом.',
+    'hold-last-loaf':'Ты звонишь в пекарню по пути домой. До нее пять минут. Тебя зовут Алекс.',
+    'bakery-morning-pickup':'Ты зашел в пекарню накануне завтрака с гостями. Тебя зовут Анна.',
+    'bakery-outside-table':'Вы втроем подошли к пекарне. На улице стоят столики.',
+    'takeout-pickup-name':'Ты пришел за оплаченным онлайн заказом №17 на имя Алекс.',
+    'takeout-napkins':'Ты только что купил еду навынос и еще не ушел далеко от стойки.',
+    'takeout-sandwich':'Ты у стойки, где сэндвичи собирают при покупателе.',
+    'takeout-wrong-counter':'Ты оплатил заказ №21 на имя Алекс и стоишь у кассы.',
+    'takeout-second-bag':'Ты получил еду навынос: в заказе два бургера и картошка.',
+    'takeout-lunch-friend':'Вы с другом обсуждаете обед по телефону.',
+    'takeout-phone-pizza':'Ты звонишь в пиццерию. Тебя зовут Алекс Грин.',
+    'takeout-delivery-door':'Ты ждешь доставку дома. Адрес: дом 12, квартира 3, второй этаж. Входная дверь зеленая.',
+    'pilot-friend-evening':'Ты приехал к другу на ужин. Он открывает тебе дверь.',
+    'pilot-library':'Тебя зовут Анна (Anna). Ты впервые пришел в эту библиотеку за книгой для изучения английского.'
+  };
+  for(const d of root.DIALOGUES){if(!intros[d.id])throw Error('Missing introduction '+d.id);d.authorSynopsis=d.context;d.context=intros[d.id];}
 })(typeof window!=='undefined'?window:globalThis);
 
 </script>
@@ -1706,7 +1790,7 @@
   function feedback(result, turn) {
     const message = result.status === 'unknown' ? 'В базе пока нет такого ответа. Возможно, он правильный. Попытка добавлена в журнал для разбора.' :
       result.status === 'acceptable' || result.status === 'error' ? result.note : result.status === 'revealed' ? 'Можно запомнить эту фразу и продолжить.' : 'Так естественно сказать в этой ситуации.';
-    return `<div class="feedback ${result.status}" role="status"><span class="status ${result.status}">${statuses[result.status]}</span>${annotated(result.answer||session?.answers[session.index]?.answer||'',result)}<p class="explanation">${escape(result.status==='unknown'&&result.note?result.note:message)}</p>${result.fragment?`<p class="diagnostic">Фрагмент: <span lang="en">${escape(result.fragment)}</span></p>`:''}${result.correction?`<p class="diagnostic">Вариант исправления: <span lang="en">${escape(result.correction)}</span></p>`:''}${Array.isArray(result.diagnostics)&&result.diagnostics.length>1?`<ul class="diagnostic-list">${result.diagnostics.map(d=>`<li>${escape(d.note)}</li>`).join('')}</ul>`:""}${Array.isArray(result.grammarNotes)?`<p class="hint">${result.grammarNotes.map(escape).join(" ")}</p>`:""}${Array.isArray(result.blocks)&&result.blocks.length?`<details class="parse-details"><summary>Что распознано</summary><ul>${result.blocks.map(b=>`<li>${escape(b.role)}: <span lang="en">${escape(b.text)}</span></li>`).join('')}</ul></details>`:''}<h3>Как можно сказать</h3><p class="best" lang="en">${escape(turn.best)}</p>${variants(turn)}</div>`;
+    return `<div class="feedback ${result.status}" role="status"><span class="status ${result.status}">${statuses[result.status]}</span>${annotated(result.answer||session?.answers[session.index]?.answer||'',result)}<p class="explanation">${escape(result.status==='unknown'&&result.note?result.note:message)}</p>${result.fragment?`<p class="diagnostic">Фрагмент: <span lang="en">${escape(result.fragment)}</span></p>`:''}${result.correction?`<p class="diagnostic">Вариант исправления: <span lang="en">${escape(result.correction)}</span></p>`:''}${result.orthographyNote?`<p class="hint">${escape(result.orthographyNote)}</p>`:""}${Array.isArray(result.diagnostics)&&result.diagnostics.length>1?`<ul class="diagnostic-list">${result.diagnostics.map(d=>`<li>${escape(d.note)}</li>`).join('')}</ul>`:""}${Array.isArray(result.grammarNotes)?`<p class="hint">${result.grammarNotes.map(escape).join(" ")}</p>`:""}${Array.isArray(result.blocks)&&result.blocks.length?`<details class="parse-details"><summary>Что распознано</summary><ul>${result.blocks.map(b=>`<li>${escape(b.role)}: <span lang="en">${escape(b.text)}</span></li>`).join('')}</ul></details>`:''}<h3>Как можно сказать</h3><p class="best" lang="en">${escape(turn.best)}</p>${variants(turn)}</div>`;
   }
   function renderPractice() {
     const d = current();

@@ -126,3 +126,20 @@ const unparsed=E.check('Could a flying whale bring water?',requestTurn);assert.e
 const yellow=E.check('Give me an English textbook.',library.turns[0]);assert.equal(yellow.annotations.find(t=>t.text==='Give').color,'acceptable');assert.equal(yellow.annotations.find(t=>t.text==='textbook').color,'correct');
 console.log('Rewritten story, mobile examples and token annotations passed.');
 const wannaError=E.check('Wanna see TV',revised.turns[7]);assert.equal(wannaError.status,'error');assert.equal(wannaError.annotations.find(t=>t.text==='see').color,'error');
+// Feedback batch: families, not just the four screenshots.
+function expect(index,status,answers){for(const a of answers)assert.equal(E.check(a,revised.turns[index]).status,status,a);}
+expect(4,'correct',['Two are enough','Two is enough','Two plates are enough','Two plates is enough','Two would be enough','I think two are enough','We just need two','Two will do it']);
+expect(4,'error',['Three are enough','Two are not enough','Two plate']);
+expect(5,'correct',["No, don't like cheese","Don't really like cheese","I don't enjoy cheese at all","No thanks, I'm not into cheese","Cheese isn't my thing"]);
+expect(5,'error',['I love cheese','I does not like cheese']);
+expect(5,'unknown',["I don't like cheese but I want it today"]);
+expect(9,'correct',["Let's watch a comedy","Let's watch the comedy","How about watching a comedy?","I'd rather watch the comedy","I want to watch a comedy","I think a comedy would be fun"]);
+expect(9,'error',['How about watch a comedy','I would rather to watch the comedy','I want watch a comedy']);
+expect(9,'unknown',["Let's not watch a comedy","Let's watch a comedy and then fly to Mars"]);
+expect(7,'correct',['Lets watch TV',"Let's watch TV"]);
+assert.ok(E.check('Lets watch TV',revised.turns[7]).orthographyNote);
+expect(0,'correct',['My bus was delayed','The bus ran late']);expect(1,'correct',["I'm a bit hungry",'I could eat something']);
+expect(2,'correct',['What could I help with?','What would you like me to do?']);
+expect(3,'correct',['Where are your knives?']);expect(3,'error',['Where is knife']);
+expect(6,'correct',['That smells wonderful']);expect(8,'correct',["It's right under that book",'Check beneath the book']);
+console.log('Expanded conversational families and screenshot regressions passed.');
