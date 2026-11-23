@@ -125,6 +125,11 @@
   }
   const yes=/^(?:(?:yes|yeah|yep|yup|sure|okay|ok|of course|certainly|absolutely) ?)?(?:that is (?:great|fine|perfect|good|right)|it is (?:great|fine|perfect|good)|(?:great|fine|perfect|good|lovely)|that works(?: for me)?|that sounds (?:good|great|fine)|sounds (?:good|great|fine)|it works for me|that would be (?:great|nice)|i would like that|that is (?:quite|absolutely) fine)$/;
   function parseCore(s,frame,blocks=[],polite=false,affirmed=false){
+    if(frame.kind==='conversation'){
+      if((frame.patterns||[]).some(p=>new RegExp('^(?:'+p+')$').test(s))&&(s||affirmed))return good([...blocks,{role:'Смысл реплики',text:s||'подтверждение'}]);
+      for(const e of frame.errors||[])if(new RegExp('^(?:'+e.pattern+')$').test(s))return bad('conversation-grammar',e.fragment,e.note,e.correction,blocks);
+      return null;
+    }
     if(frame.kind==='object'){
       if(!s && affirmed && frame.allowYes)return good([...blocks,{role:'Смысл',text:'принято предложение: '+frame.objectLabel}]);
       if(s==='no'&&frame.allowYes)return bad('opposite-intent',s,'Это отказ от предложения, а по заданию вы его принимаете.',frame.example,blocks);
@@ -142,6 +147,7 @@
       return objectAnswer(s,{...frame,noun:'water',amount:'small'},blocks,polite);
     }
     if(frame.kind==='no-ice'){
+      if(/^no (?:no ice(?: for me)?|without (?:any )?ice)$/.test(s))return good([...blocks,{role:'Отказ от льда',text:s}]);
       if(/^(?:no(?: ice(?: for me)?)?|without (?:any )?ice|(?:i )?(?:do not want|do not need|would prefer no|would rather have no) ice|(?:i would like|can i have) (?:it|the water) without ice)$/.test(s))return good([...blocks,{role:'Отказ от льда',text:s}]);
       if(/^(?:no(?: thanks| thank you)? )?(?:i (?:do not want|do not need|would not like)(?: any)? ice|i would (?:prefer|like) (?:it|the water) (?:without|with no) ice|(?:please )?do not (?:add|put)(?: any)? ice(?: in (?:it|my water))?|leave (?:the )?ice out)$/.test(s))return good([...blocks,{role:'Отказ от льда',text:s}]);
       const positive=objectAnswer(s,{noun:'ice',objectLabel:'лед',example:frame.example},blocks,polite);
@@ -155,6 +161,7 @@
       if(/^(?:on|onto) table$/.test(s))return bad('missing-determiner',s,'Здесь речь об определенном столе: on the table, а не on table.',frame.example,blocks);
     }
     if(frame.kind==='tv'){
+      s=s.replace(/^(?:i )?wanna /,'i want to ').replace(/^want to /,'i want to ');
       if(/^(?:(?:i|we) (?:want|would like|would love) to |let us |(?:can|could) we |i (?:feel like|fancy) |how about |what about |i am in the mood for |i would enjoy )?(?:watch(?:ing)?)(?: some)? (?:tv|television|the tv|the television)(?: for a (?:bit|while))?$/.test(s)){
         // The verb form is constrained by its construction, not merely the word watch.
         if(/^(?:i feel like|i fancy|how about|what about|i am in the mood for|i would enjoy) watch\b/.test(s))return bad('gerund-required','watch','После этой конструкции нужна форма watching.',s.replace(/\bwatch\b/,'watching'),blocks);
@@ -232,7 +239,7 @@
     [/^i am want\b/,'i want','extra-am','Перед want здесь не нужен am: I want.'],
     [/^my name anna$/,'my name is anna','missing-is','В полной фразе нужно my name is Anna.']
   ];
-  function check(answer,turn){
+  function evaluate(answer,turn){
     const text=normalize(answer),frame=turn.assessment;
     if(!String(answer).trim())return {status:'empty'};
     if(!text||/\p{L}/u.test(String(answer).replace(/[a-z]/gi,'')))return {...unknown('неподдерживаемые буквы или фрагмент ответа'),method:'construction',assessmentVersion:'pilot-1'};
@@ -248,6 +255,31 @@
       }
     }
     return {...(result||unknown('',e.blocks)),method:'construction',assessmentVersion:'pilot-1'};
+  }
+  function check(answer,turn){
+    const result=evaluate(answer,turn);
+    const tokens=[...String(answer).matchAll(/[a-z]+(?:['’][a-z]+)?|[0-9]+/gi)].map(m=>({start:m.index,end:m.index+m[0].length,text:m[0],color:result.status==='unknown'?'neutral':'correct'}));
+    const units=tokens.flatMap((t,i)=>normalize(t.text).split(' ').map(word=>({word,index:i})));
+    const locate=fragment=>{const words=normalize(fragment).split(' ');for(let i=0;i<=units.length-words.length;i++)if(words.every((w,j)=>units[i+j].word===w))return [...new Set(units.slice(i,i+words.length).map(u=>u.index))];return [];};
+    const insertions=[];
+    if(result.status==='error')for(const d of result.diagnostics||[result]){
+      let ids=locate(d.fragment);
+      if(d.code==='missing-determiner'||d.code==='missing-of'){
+        const target=d.code==='missing-of'?ids.find(i=>normalize(tokens[i].text)==='water'):ids[0];
+        if(target!==undefined)insertions.push({at:tokens[target].start,label:d.code==='missing-of'?'of':'a/an',note:d.note});
+        continue;
+      }
+      const focus={ 'a-an':['a','an'],'missing-plural':['plate','knife','glass','bottle','week'],'singular-determiner-plural':['plates','knives','glasses','bottles','textbooks'],'watch-tv':['see','look'],'modal-form':['has','having'],'opposite-intent':['no','not'],'wrong-quantity':['one','two','three','four','1','2','3','4'] }[d.code];
+      if(focus){const pool=ids.length?ids:tokens.map((_,i)=>i);const selected=pool.filter(i=>normalize(tokens[i].text).split(' ').some(w=>focus.includes(w)));if(selected.length)ids=selected;}
+      for(const i of ids){tokens[i].color='error';tokens[i].note=d.note;}
+    }
+    if(result.status==='error'&&!insertions.length&&!tokens.some(t=>t.color==='error'))for(const token of tokens)token.color='neutral';
+    if(result.status==='acceptable'){
+      let ids=tokens.map((_,i)=>i).filter(i=>/^(give|gimme|bring|pass|request|some)$/i.test(tokens[i].text));
+      if(!ids.length)ids=tokens.map((_,i)=>i);
+      for(const i of ids){tokens[i].color='acceptable';tokens[i].note=result.note;}
+    }
+    return {...result,annotations:tokens,insertions,assessmentVersion:'pilot-2'};
   }
   root.StructuredAssessment={check,normalize,nounPhrase,request};
   if(typeof module!=='undefined')module.exports=root.StructuredAssessment;

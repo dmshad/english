@@ -110,3 +110,19 @@ group(library,9,'correct',['Yes, thanks, that is great.']);
 for(const d of [home,library])for(let i=0;i<10;i++)group(d,i,'correct',E.preferred(d.turns[i]));
 if(failures.length){console.log(JSON.stringify(failures,null,2));throw new Error(failures.length+' pilot verdict failures');}
 console.log(checks+' pilot checks passed: independent paraphrases, known errors, protected exceptions and unknowns.');
+// New story regressions and original mobile reports.
+vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../content-friend.js'),'utf8'),context);
+const revised=DIALOGUES.find(d=>d.id==='pilot-friend-evening');
+for(let i=0;i<10;i++)for(const answer of revised.turns[i].natural)assert.equal(E.check(answer,revised.turns[i]).status,'correct',answer);
+assert.equal(E.check('Wanna watch TV',revised.turns[7]).status,'correct');
+const ice={assessment:{kind:'no-ice',example:'No ice, thanks.'},natural:[]};
+assert.equal(E.check('No, no ice, thanks',ice).status,'correct');
+const water=home.turns[0]; // Construct a stable independent water frame after story replacement.
+const requestTurn={assessment:{kind:'object',noun:'water',objectLabel:'вода',register:'close',allowYes:true,example:'Water, please.'},natural:[]};
+const red=E.check('Can I have an water?',requestTurn);
+assert.equal(red.status,'error');assert.equal(red.annotations.find(t=>t.text==='an').color,'error');assert.equal(red.annotations.find(t=>t.text==='water').color,'correct');
+const gap=E.check('Can I have glass of water?',requestTurn);assert.equal(gap.insertions.length,1);assert.equal(gap.annotations.find(t=>t.text==='glass').color,'correct');
+const unparsed=E.check('Could a flying whale bring water?',requestTurn);assert.equal(unparsed.status,'unknown');assert.ok(unparsed.annotations.every(t=>t.color==='neutral'));
+const yellow=E.check('Give me an English textbook.',library.turns[0]);assert.equal(yellow.annotations.find(t=>t.text==='Give').color,'acceptable');assert.equal(yellow.annotations.find(t=>t.text==='textbook').color,'correct');
+console.log('Rewritten story, mobile examples and token annotations passed.');
+const wannaError=E.check('Wanna see TV',revised.turns[7]);assert.equal(wannaError.status,'error');assert.equal(wannaError.annotations.find(t=>t.text==='see').color,'error');

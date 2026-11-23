@@ -14,13 +14,14 @@
 @media(prefers-reduced-motion:no-preference){button{transition:background .15s ease,border-color .15s ease}.feedback{animation:appear .2s ease}@keyframes appear{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}}
 .pilot-offer{padding:1rem;background:#eef3fb;border:1px solid #cdd9eb;border-radius:13px;margin-bottom:1.2rem}.pilot-offer .actions{margin-top:.6rem}.feedback.error{background:#fff0ef;border-color:#e7afaa}.status.error{color:#a52b26}.diagnostic{margin:.65rem 0 0;font-size:.95rem;overflow-wrap:anywhere}.diagnostic span{font-weight:600}.parse-details{margin-top:.75rem;font-size:.9rem}.parse-details summary{cursor:pointer}.parse-details ul{padding-left:1.2rem}
 .feedback .explanation,.diagnostic,.parse-details{font-size:1rem}
+.annotated-answer{font-size:1.2rem;line-height:1.9;white-space:pre-wrap;overflow-wrap:anywhere;margin:1rem 0}.word-correct{color:#126048;background:#def0e5;border-radius:3px}.word-acceptable{color:#805000;background:#fff0ba;border-bottom:2px dotted #a06b00}.word-error{color:#9c201d;background:#ffdcd9;text-decoration:underline;text-decoration-style:wavy}.word-neutral{color:#536370;background:#e9edf2}.missing-word{font-size:.9em;font-weight:650}
 
 </style>
 </head>
 <body>
   <header class="site-header wrap">
     <a href="#" id="home-link" class="brand" aria-label="Everyday — на главную"><span class="brand-mark" aria-hidden="true">e.</span>everyday<span class="brand-sub">английский в диалогах</span></a>
-    <span class="offline-label">Оффлайн · v0.5</span>
+    <span class="offline-label">Оффлайн · v0.6</span>
   </header>
   <main class="wrap" id="app"></main>
   <footer class="wrap footer"><span>В своем темпе. Своими словами.</span><button class="text-button" id="journal-button">Нераспознанные ответы <span id="journal-count">0</span></button></footer>
@@ -1233,6 +1234,11 @@
   }
   const yes=/^(?:(?:yes|yeah|yep|yup|sure|okay|ok|of course|certainly|absolutely) ?)?(?:that is (?:great|fine|perfect|good|right)|it is (?:great|fine|perfect|good)|(?:great|fine|perfect|good|lovely)|that works(?: for me)?|that sounds (?:good|great|fine)|sounds (?:good|great|fine)|it works for me|that would be (?:great|nice)|i would like that|that is (?:quite|absolutely) fine)$/;
   function parseCore(s,frame,blocks=[],polite=false,affirmed=false){
+    if(frame.kind==='conversation'){
+      if((frame.patterns||[]).some(p=>new RegExp('^(?:'+p+')$').test(s))&&(s||affirmed))return good([...blocks,{role:'Смысл реплики',text:s||'подтверждение'}]);
+      for(const e of frame.errors||[])if(new RegExp('^(?:'+e.pattern+')$').test(s))return bad('conversation-grammar',e.fragment,e.note,e.correction,blocks);
+      return null;
+    }
     if(frame.kind==='object'){
       if(!s && affirmed && frame.allowYes)return good([...blocks,{role:'Смысл',text:'принято предложение: '+frame.objectLabel}]);
       if(s==='no'&&frame.allowYes)return bad('opposite-intent',s,'Это отказ от предложения, а по заданию вы его принимаете.',frame.example,blocks);
@@ -1250,6 +1256,7 @@
       return objectAnswer(s,{...frame,noun:'water',amount:'small'},blocks,polite);
     }
     if(frame.kind==='no-ice'){
+      if(/^no (?:no ice(?: for me)?|without (?:any )?ice)$/.test(s))return good([...blocks,{role:'Отказ от льда',text:s}]);
       if(/^(?:no(?: ice(?: for me)?)?|without (?:any )?ice|(?:i )?(?:do not want|do not need|would prefer no|would rather have no) ice|(?:i would like|can i have) (?:it|the water) without ice)$/.test(s))return good([...blocks,{role:'Отказ от льда',text:s}]);
       if(/^(?:no(?: thanks| thank you)? )?(?:i (?:do not want|do not need|would not like)(?: any)? ice|i would (?:prefer|like) (?:it|the water) (?:without|with no) ice|(?:please )?do not (?:add|put)(?: any)? ice(?: in (?:it|my water))?|leave (?:the )?ice out)$/.test(s))return good([...blocks,{role:'Отказ от льда',text:s}]);
       const positive=objectAnswer(s,{noun:'ice',objectLabel:'лед',example:frame.example},blocks,polite);
@@ -1263,6 +1270,7 @@
       if(/^(?:on|onto) table$/.test(s))return bad('missing-determiner',s,'Здесь речь об определенном столе: on the table, а не on table.',frame.example,blocks);
     }
     if(frame.kind==='tv'){
+      s=s.replace(/^(?:i )?wanna /,'i want to ').replace(/^want to /,'i want to ');
       if(/^(?:(?:i|we) (?:want|would like|would love) to |let us |(?:can|could) we |i (?:feel like|fancy) |how about |what about |i am in the mood for |i would enjoy )?(?:watch(?:ing)?)(?: some)? (?:tv|television|the tv|the television)(?: for a (?:bit|while))?$/.test(s)){
         // The verb form is constrained by its construction, not merely the word watch.
         if(/^(?:i feel like|i fancy|how about|what about|i am in the mood for|i would enjoy) watch\b/.test(s))return bad('gerund-required','watch','После этой конструкции нужна форма watching.',s.replace(/\bwatch\b/,'watching'),blocks);
@@ -1340,7 +1348,7 @@
     [/^i am want\b/,'i want','extra-am','Перед want здесь не нужен am: I want.'],
     [/^my name anna$/,'my name is anna','missing-is','В полной фразе нужно my name is Anna.']
   ];
-  function check(answer,turn){
+  function evaluate(answer,turn){
     const text=normalize(answer),frame=turn.assessment;
     if(!String(answer).trim())return {status:'empty'};
     if(!text||/\p{L}/u.test(String(answer).replace(/[a-z]/gi,'')))return {...unknown('неподдерживаемые буквы или фрагмент ответа'),method:'construction',assessmentVersion:'pilot-1'};
@@ -1356,6 +1364,31 @@
       }
     }
     return {...(result||unknown('',e.blocks)),method:'construction',assessmentVersion:'pilot-1'};
+  }
+  function check(answer,turn){
+    const result=evaluate(answer,turn);
+    const tokens=[...String(answer).matchAll(/[a-z]+(?:['’][a-z]+)?|[0-9]+/gi)].map(m=>({start:m.index,end:m.index+m[0].length,text:m[0],color:result.status==='unknown'?'neutral':'correct'}));
+    const units=tokens.flatMap((t,i)=>normalize(t.text).split(' ').map(word=>({word,index:i})));
+    const locate=fragment=>{const words=normalize(fragment).split(' ');for(let i=0;i<=units.length-words.length;i++)if(words.every((w,j)=>units[i+j].word===w))return [...new Set(units.slice(i,i+words.length).map(u=>u.index))];return [];};
+    const insertions=[];
+    if(result.status==='error')for(const d of result.diagnostics||[result]){
+      let ids=locate(d.fragment);
+      if(d.code==='missing-determiner'||d.code==='missing-of'){
+        const target=d.code==='missing-of'?ids.find(i=>normalize(tokens[i].text)==='water'):ids[0];
+        if(target!==undefined)insertions.push({at:tokens[target].start,label:d.code==='missing-of'?'of':'a/an',note:d.note});
+        continue;
+      }
+      const focus={ 'a-an':['a','an'],'missing-plural':['plate','knife','glass','bottle','week'],'singular-determiner-plural':['plates','knives','glasses','bottles','textbooks'],'watch-tv':['see','look'],'modal-form':['has','having'],'opposite-intent':['no','not'],'wrong-quantity':['one','two','three','four','1','2','3','4'] }[d.code];
+      if(focus){const pool=ids.length?ids:tokens.map((_,i)=>i);const selected=pool.filter(i=>normalize(tokens[i].text).split(' ').some(w=>focus.includes(w)));if(selected.length)ids=selected;}
+      for(const i of ids){tokens[i].color='error';tokens[i].note=d.note;}
+    }
+    if(result.status==='error'&&!insertions.length&&!tokens.some(t=>t.color==='error'))for(const token of tokens)token.color='neutral';
+    if(result.status==='acceptable'){
+      let ids=tokens.map((_,i)=>i).filter(i=>/^(give|gimme|bring|pass|request|some)$/i.test(tokens[i].text));
+      if(!ids.length)ids=tokens.map((_,i)=>i);
+      for(const i of ids){tokens[i].color='acceptable';tokens[i].note=result.note;}
+    }
+    return {...result,annotations:tokens,insertions,assessmentVersion:'pilot-2'};
   }
   root.StructuredAssessment={check,normalize,nounPhrase,request};
   if(typeof module!=='undefined')module.exports=root.StructuredAssessment;
@@ -1525,6 +1558,30 @@
 
 </script>
   <script>
+/* A whole story, rewritten after user feedback; not a sequence of service requests. */
+(function(root){
+  const d=root.DIALOGUES.find(d=>d.id==='pilot-friend-evening');
+  root.APP_VERSION='0.6';root.PROGRESS_MIGRATIONS=[{revision:3,ids:root.REVISED_DIALOGUE_IDS},{revision:4,ids:['pilot-friend-evening']}];root.CONTENT_REVISION=4;root.REVISED_DIALOGUE_IDS=['pilot-friend-evening'];
+  d.context='Ты приехал к другу на ужин. Автобус задержался, ты голоден. Помогаешь с пастой, а после ужина вы ищете пульт и выбираете, что посмотреть.';
+  d.tone='Разговор друзей: короткие ответы, обычные сокращения, без обслуживания гостя как клиента.';
+  const t=(en,ru,task,best,natural,patterns,errors=[],stage='')=>({en,ru,task,best,natural:[best,...natural],displayExamples:[best,...natural].slice(0,10),acceptable:[],rules:[],stage,assessment:{kind:'conversation',example:best,patterns,errors}});
+  d.turns=[
+    t('Hey! You made it. How was the bus?','Привет! Наконец-то. Как доехал на автобусе?','Автобус опоздал.','The bus was late.', ['My bus was late.','It was late.','The bus arrived late.','The bus was running late.','It got here late.'],['(?:the |my )?bus (?:was |arrived |got here |was running )late','it (?:was|arrived|got here) late'],[{pattern:'(?:the |my )?bus were late',note:'Bus — единственное число; здесь нужно was, не were.',fragment:'were',correction:'The bus was late.'}]),
+    t('Oh, right. Hungry?','А, понятно. Есть хочешь?','Да, я голоден.','Yeah, I’m hungry.', ['Yes, I’m hungry.','I’m hungry.','Really hungry.','Very hungry.','I’m starving.','Yep.','Yes.'],['(?:i am )?(?:(?:really|very|pretty|so) )?(?:hungry|starving)',''],[{pattern:'i hungry',note:'В полной фразе нужен am: I’m hungry. Короткое Hungry тоже допустимо.',fragment:'i hungry',correction:'I’m hungry.'}]),
+    t('Good, I’m making pasta. Want to give me a hand?','Хорошо, я как раз делаю пасту. Поможешь?','Конечно. Что мне делать?','Sure. What do you need me to do?', ['What can I do?','What should I do?','How can I help?','Sure, what do I do?','Tell me what to do.','What do you want me to do?'],['what (?:can|should|do) i do','what do you (?:need|want) me to do','how can i help','tell me what to do']),
+    t('Can you cut these tomatoes?','Можешь нарезать эти помидоры?','А где нож?','Where’s the knife?', ['Where is the knife?','Where can I find a knife?','Where do you keep the knives?','Where are the knives?','Where’s a knife?','Do you have a knife?'],['(?:and )?where (?:is|can i find) (?:the |a |my )?knife','where (?:are|do you keep) the knives','do you have a knife'],[{pattern:'where are the knife',note:'Один нож: Where is the knife? Несколько: Where are the knives?',fragment:'are',correction:'Where is the knife?'}]),
+    t('Top drawer. I’ll get the plates. How many do we need?','В верхнем ящике. Я достану тарелки. Сколько нам нужно?','Двух хватит.','Two should be enough.', ['Two is enough.','Just two.','We only need two.','Two will do.','Two plates are enough.','A couple is enough.'],['(?:just )?(?:two|2)(?: plates)?','(?:two|2) (?:should be|is|will be) enough','(?:two|2) will do','two plates (?:is|are) enough','we (?:only )?need two(?: plates)?','a couple(?: of plates)? (?:is|should be) enough'],[{pattern:'two plate',note:'После two нужно plates. Для two plates: are enough.',fragment:'two plate',correction:'Two plates are enough.'}]),
+    t('Want some cheese on yours?','Тебе посыпать сыром?','Нет, я не люблю сыр.','No, I don’t like cheese.', ['I don’t like cheese.','No cheese for me.','I’m not a fan of cheese.','No, thanks.','I’d rather have it without cheese.'],['no(?: cheese(?: for me)?)?','i do not like cheese','i am not a fan of cheese','i would (?:rather have|like) it without cheese'],[{pattern:'i does not like cheese',note:'С I используется don’t, не doesn’t.',fragment:'does not',correction:'I don’t like cheese.'}]),
+    t('Here you go. Careful, it’s hot.','Держи. Осторожно, горячее.','Хорошо пахнет!','Smells good!', ['It smells good.','That smells great.','Smells great.','It smells really nice.','That smells delicious.'],['(?:(?:it|that|the pasta) )?smells (?:(?:really|very|so) )?(?:good|great|nice|delicious|amazing)'],[{pattern:'it smell (?:good|great|nice)',note:'С it нужна форма smells.',fragment:'smell',correction:'It smells good.'}]),
+    {...t('What do you feel like doing now?','Чем теперь хочешь заняться?','Давай посмотрим телевизор.','Let’s watch TV.', ['Wanna watch TV.','I’d like to watch TV.','How about watching TV?','I feel like watching some TV.','Want to watch TV?'],[]),stage:'После ужина вы отнесли посуду на кухню и сели на диван.',assessment:{kind:'tv',example:'Let’s watch TV.'}},
+    t('Yeah, but where’s the remote?','Да, но где пульт?','Он под книгой.','It’s under the book.', ['Under the book.','It’s underneath the book.','Look under the book.','The remote is under the book.','Under that book.'],['(?:(?:it|the remote) is |look )?(?:under|underneath) (?:the|that|your) book'],[{pattern:'(?:(?:it|the remote) is )?under book',note:'Здесь речь о конкретной книге: under the book.',fragment:'book',correction:'Under the book.'}]),
+    t('Found it. There’s a comedy or a film about space.','Нашел. Есть комедия и фильм про космос.','Давай комедию.','Let’s watch the comedy.', ['The comedy.','How about the comedy?','I’d go for the comedy.','I’d like to watch the comedy.','Comedy sounds good.','Let’s go with the comedy.'],['(?:the )?comedy','let us (?:watch|go with) the comedy','how about (?:the )?comedy','i would (?:go for|like to watch|choose) the comedy','comedy sounds (?:good|great)','can we watch the comedy'])
+  ];
+  d.ending={en:'Good choice. Here we go!',ru:'Хороший выбор. Включаю!'};
+})(typeof window!=='undefined'?window:globalThis);
+
+</script>
+  <script>
 (function () {
   'use strict';
   const $ = id => document.getElementById(id);
@@ -1545,7 +1602,7 @@
   if (settings.topic !== 'random' && !topics.some(([id]) => id === settings.topic)) settings.topic = 'random';
   let journal = Array.isArray(saved.journal) ? saved.journal.filter(item => item && typeof item.answer === 'string' && typeof item.task === 'string') : [];
   const completedIds = new Set(Array.isArray(saved.completedIds) ? saved.completedIds.filter(id => typeof id === 'string') : []);
-  if (saved.progressRevision !== window.CONTENT_REVISION) for (const id of window.REVISED_DIALOGUE_IDS) completedIds.delete(id);
+  for(const m of window.PROGRESS_MIGRATIONS||[{revision:window.CONTENT_REVISION,ids:window.REVISED_DIALOGUE_IDS}])if(Number(saved.progressRevision||0)<m.revision)for(const id of m.ids)completedIds.delete(id);
   const validAnswer = a => a && Object.hasOwn(statuses, a.status) && typeof a.answer === 'string';
   function validArchive(entry) {
     const d = entry?.dialogue;
@@ -1605,7 +1662,7 @@
     const available = availablePool();
     const remaining = choices.filter(d => !completedIds.has(d.id)).length;
     const previous = current();
-    app.innerHTML = `${storageNote()}${contentUpdated ? '<p class="notice">Теперь в каждом диалоге 10 твоих реплик. Текущий диалог старой версии нужно начать заново. История и журнал нераспознанных ответов сохранены.</p>' : ''}<div class="menu-tools"><button class="secondary" data-action="history">История · ${history.length}</button><button class="text-button" data-action="update">Загрузить свежую версию</button></div><section class="hero"><div class="hero-copy"><div class="eyebrow">Практика настоящих разговоров</div>
+    app.innerHTML = `${storageNote()}${contentUpdated ? '<p class="notice">Сюжет обновился. Текущий диалог старой версии нужно начать заново. История и журнал нераспознанных ответов сохранены.</p>' : ''}<div class="menu-tools"><button class="secondary" data-action="history">История · ${history.length}</button><button class="text-button" data-action="update">Загрузить свежую версию</button></div><section class="hero"><div class="hero-copy"><div class="eyebrow">Практика настоящих разговоров</div>
       <h1>Маленький диалог.<br>Больше уверенности.</h1><p>Переводи реплики на английский и пробуй, как это звучит в обычной жизни. Один разговор за раз.</p>
       <div class="features"><span class="pill">Живой английский</span><span class="pill">Без интернета</span><span class="pill">Без таймера</span></div>
       <div class="sample"><small>В кафе это может звучать просто</small><p>“Small, please.”</p><small>Короткий ответ тоже бывает лучшим ответом.</small></div></div>
@@ -1635,10 +1692,21 @@
     const choices = E.preferred(turn);
     return `<details class="variants"><summary>Частые варианты ответа · ${choices.length}</summary><ul lang="en">${choices.map(item => `<li>${escape(item)}</li>`).join('')}</ul><p class="hint">Показано не больше 10 естественных вариантов для этой ситуации. Приложение распознает и другие формулировки.</p></details>`;
   }
+  function annotated(answer,record){
+    if(!Array.isArray(record.annotations))return '';
+    let out='',cursor=0;
+    for(const token of record.annotations){
+      out+=escape(answer.slice(cursor,token.start));
+      for(const gap of record.insertions||[])if(gap.at===token.start)out+=`<span class="word-error missing-word" title="${escape(gap.note)}">[${escape(gap.label)}]</span> `;
+      out+=`<span class="word-${['correct','acceptable','error'].includes(token.color)?token.color:'neutral'}" title="${escape(token.note||'')}">${escape(answer.slice(token.start,token.end))}</span>`;cursor=token.end;
+    }
+    out+=escape(answer.slice(cursor));
+    return `<div class="annotated-answer" lang="en">${out}</div><p class="hint">Зеленое — распознано · желтое — неудачно здесь · красное — ошибка · нейтральное — нет уверенной оценки. Скобки обозначают пропущенное слово.</p>`;
+  }
   function feedback(result, turn) {
     const message = result.status === 'unknown' ? 'В базе пока нет такого ответа. Возможно, он правильный. Попытка добавлена в журнал для разбора.' :
       result.status === 'acceptable' || result.status === 'error' ? result.note : result.status === 'revealed' ? 'Можно запомнить эту фразу и продолжить.' : 'Так естественно сказать в этой ситуации.';
-    return `<div class="feedback ${result.status}" role="status"><span class="status ${result.status}">${statuses[result.status]}</span><p class="explanation">${escape(result.status==='unknown'&&result.note?result.note:message)}</p>${result.fragment?`<p class="diagnostic">Фрагмент: <span lang="en">${escape(result.fragment)}</span></p>`:''}${result.correction?`<p class="diagnostic">Вариант исправления: <span lang="en">${escape(result.correction)}</span></p>`:''}${Array.isArray(result.diagnostics)&&result.diagnostics.length>1?`<ul class="diagnostic-list">${result.diagnostics.map(d=>`<li>${escape(d.note)}</li>`).join('')}</ul>`:""}${Array.isArray(result.grammarNotes)?`<p class="hint">${result.grammarNotes.map(escape).join(" ")}</p>`:""}${Array.isArray(result.blocks)&&result.blocks.length?`<details class="parse-details"><summary>Что распознано</summary><ul>${result.blocks.map(b=>`<li>${escape(b.role)}: <span lang="en">${escape(b.text)}</span></li>`).join('')}</ul></details>`:''}<h3>Как можно сказать</h3><p class="best" lang="en">${escape(turn.best)}</p>${variants(turn)}</div>`;
+    return `<div class="feedback ${result.status}" role="status"><span class="status ${result.status}">${statuses[result.status]}</span>${annotated(result.answer||session?.answers[session.index]?.answer||'',result)}<p class="explanation">${escape(result.status==='unknown'&&result.note?result.note:message)}</p>${result.fragment?`<p class="diagnostic">Фрагмент: <span lang="en">${escape(result.fragment)}</span></p>`:''}${result.correction?`<p class="diagnostic">Вариант исправления: <span lang="en">${escape(result.correction)}</span></p>`:''}${Array.isArray(result.diagnostics)&&result.diagnostics.length>1?`<ul class="diagnostic-list">${result.diagnostics.map(d=>`<li>${escape(d.note)}</li>`).join('')}</ul>`:""}${Array.isArray(result.grammarNotes)?`<p class="hint">${result.grammarNotes.map(escape).join(" ")}</p>`:""}${Array.isArray(result.blocks)&&result.blocks.length?`<details class="parse-details"><summary>Что распознано</summary><ul>${result.blocks.map(b=>`<li>${escape(b.role)}: <span lang="en">${escape(b.text)}</span></li>`).join('')}</ul></details>`:''}<h3>Как можно сказать</h3><p class="best" lang="en">${escape(turn.best)}</p>${variants(turn)}</div>`;
   }
   function renderPractice() {
     const d = current();
@@ -1651,7 +1719,7 @@
       <div class="meta"><span class="pill">${d.level}</span><span class="pill">${d.topicLabel}</span><span class="pill">${labels[d.length]}</span><span class="pill">${d.checking==='construction'?'Новая проверка':'Проверка по базе'}</span></div><h1>${escape(d.title)}</h1><p class="context">${escape(d.context)}</p><p class="hint">${escape(d.tone)}</p>
       <div class="conversation">${d.turns.slice(0, session.index).map((t, index) => {
         const a = session.answers[index];
-        return `<div class="exchange">${partner(t.en,t.ru,d.speaker,t.stage)}<div class="answer-history"><p class="speaker">Ты · <span class="status ${a.status}">${statuses[a.status]}</span></p><p class="original">${escape(t.task)}</p>${a.answer ? `<p lang="en">${escape(a.answer)}</p>` : '<p class="muted">Ответ пропущен</p>'}<p class="reference">Эталон: <span lang="en">${escape(t.best)}</span></p>${a.note?`<p class="hint">${escape(a.note)}</p>`:""}${a.correction?`<p class="hint">Вариант исправления: <span lang="en">${escape(a.correction)}</span></p>`:""}${variants(t)}<button class="text-button" data-copy-turn="${index}">Скопировать фрагмент</button></div></div>`;
+        return `<div class="exchange">${partner(t.en,t.ru,d.speaker,t.stage)}<div class="answer-history"><p class="speaker">Ты · <span class="status ${a.status}">${statuses[a.status]}</span></p><p class="original">${escape(t.task)}</p>${a.answer ? `${annotated(a.answer,a)||`<p lang="en">${escape(a.answer)}</p>`}` : '<p class="muted">Ответ пропущен</p>'}<p class="reference">Эталон: <span lang="en">${escape(t.best)}</span></p>${a.note?`<p class="hint">${escape(a.note)}</p>`:""}${a.correction?`<p class="hint">Вариант исправления: <span lang="en">${escape(a.correction)}</span></p>`:""}${variants(t)}<button class="text-button" data-copy-turn="${index}">Скопировать фрагмент</button></div></div>`;
       }).join('')}
       ${done ? partner(d.ending.en,d.ending.ru,d.speaker) : `<div id="active-turn">${partner(d.turns[session.index].en,d.turns[session.index].ru,d.speaker,d.turns[session.index].stage)}
         <section class="answer-card"><label for="answer">Твоя реплика — переведи на английский</label><p class="task">${escape(d.turns[session.index].task)}</p>
@@ -1677,7 +1745,7 @@
     screen = 'history-entry';
     app.innerHTML = `<section class="practice"><div class="practice-top"><button class="text-button" data-action="history">К истории</button><button class="text-button" data-history-copy="${escape(entry.runId)}">Скопировать диалог</button></div><div class="meta"><span class="pill">${escape(d.level)}</span><span class="pill">${escape(d.topicLabel)}</span></div><h1>${escape(d.title)}</h1><p class="context">${escape(d.context)}</p><p class="hint">${done ? 'Завершенный диалог' : 'Сохраненные ответы незавершенного диалога'} · ${escape(new Date(entry.updatedAt).toLocaleString('ru-RU'))}</p><div class="conversation">${entry.answers.map((a,index) => {
       const t = d.turns[index];
-      return `<div class="exchange">${partner(t.en,t.ru,d.speaker,t.stage)}<div class="answer-history"><p class="speaker">Ты · <span class="status ${a.status}">${statuses[a.status]}</span></p><p class="original">${escape(t.task)}</p><p lang="en">${a.answer ? escape(a.answer) : 'Ответ пропущен'}</p><p class="reference">Эталон: <span lang="en">${escape(t.best)}</span></p>${a.note ? `<p class="hint">${escape(a.note)}</p>` : ''}${a.correction?`<p class="hint">Вариант исправления: <span lang="en">${escape(a.correction)}</span></p>`:""}${variants(t)}</div></div>`;
+      return `<div class="exchange">${partner(t.en,t.ru,d.speaker,t.stage)}<div class="answer-history"><p class="speaker">Ты · <span class="status ${a.status}">${statuses[a.status]}</span></p><p class="original">${escape(t.task)}</p>${a.answer?annotated(a.answer,a)||`<p lang="en">${escape(a.answer)}</p>`:'<p>Ответ пропущен</p>'}<p class="reference">Эталон: <span lang="en">${escape(t.best)}</span></p>${a.note ? `<p class="hint">${escape(a.note)}</p>` : ''}${a.correction?`<p class="hint">Вариант исправления: <span lang="en">${escape(a.correction)}</span></p>`:""}${variants(t)}</div></div>`;
     }).join('')}${done ? partner(d.ending.en,d.ending.ru,d.speaker) : ''}</div></section>`;
     window.scrollTo(0,0);
   }

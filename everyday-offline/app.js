@@ -18,7 +18,7 @@
   if (settings.topic !== 'random' && !topics.some(([id]) => id === settings.topic)) settings.topic = 'random';
   let journal = Array.isArray(saved.journal) ? saved.journal.filter(item => item && typeof item.answer === 'string' && typeof item.task === 'string') : [];
   const completedIds = new Set(Array.isArray(saved.completedIds) ? saved.completedIds.filter(id => typeof id === 'string') : []);
-  if (saved.progressRevision !== window.CONTENT_REVISION) for (const id of window.REVISED_DIALOGUE_IDS) completedIds.delete(id);
+  for(const m of window.PROGRESS_MIGRATIONS||[{revision:window.CONTENT_REVISION,ids:window.REVISED_DIALOGUE_IDS}])if(Number(saved.progressRevision||0)<m.revision)for(const id of m.ids)completedIds.delete(id);
   const validAnswer = a => a && Object.hasOwn(statuses, a.status) && typeof a.answer === 'string';
   function validArchive(entry) {
     const d = entry?.dialogue;
@@ -78,7 +78,7 @@
     const available = availablePool();
     const remaining = choices.filter(d => !completedIds.has(d.id)).length;
     const previous = current();
-    app.innerHTML = `${storageNote()}${contentUpdated ? '<p class="notice">Теперь в каждом диалоге 10 твоих реплик. Текущий диалог старой версии нужно начать заново. История и журнал нераспознанных ответов сохранены.</p>' : ''}<div class="menu-tools"><button class="secondary" data-action="history">История · ${history.length}</button><button class="text-button" data-action="update">Загрузить свежую версию</button></div><section class="hero"><div class="hero-copy"><div class="eyebrow">Практика настоящих разговоров</div>
+    app.innerHTML = `${storageNote()}${contentUpdated ? '<p class="notice">Сюжет обновился. Текущий диалог старой версии нужно начать заново. История и журнал нераспознанных ответов сохранены.</p>' : ''}<div class="menu-tools"><button class="secondary" data-action="history">История · ${history.length}</button><button class="text-button" data-action="update">Загрузить свежую версию</button></div><section class="hero"><div class="hero-copy"><div class="eyebrow">Практика настоящих разговоров</div>
       <h1>Маленький диалог.<br>Больше уверенности.</h1><p>Переводи реплики на английский и пробуй, как это звучит в обычной жизни. Один разговор за раз.</p>
       <div class="features"><span class="pill">Живой английский</span><span class="pill">Без интернета</span><span class="pill">Без таймера</span></div>
       <div class="sample"><small>В кафе это может звучать просто</small><p>“Small, please.”</p><small>Короткий ответ тоже бывает лучшим ответом.</small></div></div>
@@ -108,10 +108,21 @@
     const choices = E.preferred(turn);
     return `<details class="variants"><summary>Частые варианты ответа · ${choices.length}</summary><ul lang="en">${choices.map(item => `<li>${escape(item)}</li>`).join('')}</ul><p class="hint">Показано не больше 10 естественных вариантов для этой ситуации. Приложение распознает и другие формулировки.</p></details>`;
   }
+  function annotated(answer,record){
+    if(!Array.isArray(record.annotations))return '';
+    let out='',cursor=0;
+    for(const token of record.annotations){
+      out+=escape(answer.slice(cursor,token.start));
+      for(const gap of record.insertions||[])if(gap.at===token.start)out+=`<span class="word-error missing-word" title="${escape(gap.note)}">[${escape(gap.label)}]</span> `;
+      out+=`<span class="word-${['correct','acceptable','error'].includes(token.color)?token.color:'neutral'}" title="${escape(token.note||'')}">${escape(answer.slice(token.start,token.end))}</span>`;cursor=token.end;
+    }
+    out+=escape(answer.slice(cursor));
+    return `<div class="annotated-answer" lang="en">${out}</div><p class="hint">Зеленое — распознано · желтое — неудачно здесь · красное — ошибка · нейтральное — нет уверенной оценки. Скобки обозначают пропущенное слово.</p>`;
+  }
   function feedback(result, turn) {
     const message = result.status === 'unknown' ? 'В базе пока нет такого ответа. Возможно, он правильный. Попытка добавлена в журнал для разбора.' :
       result.status === 'acceptable' || result.status === 'error' ? result.note : result.status === 'revealed' ? 'Можно запомнить эту фразу и продолжить.' : 'Так естественно сказать в этой ситуации.';
-    return `<div class="feedback ${result.status}" role="status"><span class="status ${result.status}">${statuses[result.status]}</span><p class="explanation">${escape(result.status==='unknown'&&result.note?result.note:message)}</p>${result.fragment?`<p class="diagnostic">Фрагмент: <span lang="en">${escape(result.fragment)}</span></p>`:''}${result.correction?`<p class="diagnostic">Вариант исправления: <span lang="en">${escape(result.correction)}</span></p>`:''}${Array.isArray(result.diagnostics)&&result.diagnostics.length>1?`<ul class="diagnostic-list">${result.diagnostics.map(d=>`<li>${escape(d.note)}</li>`).join('')}</ul>`:""}${Array.isArray(result.grammarNotes)?`<p class="hint">${result.grammarNotes.map(escape).join(" ")}</p>`:""}${Array.isArray(result.blocks)&&result.blocks.length?`<details class="parse-details"><summary>Что распознано</summary><ul>${result.blocks.map(b=>`<li>${escape(b.role)}: <span lang="en">${escape(b.text)}</span></li>`).join('')}</ul></details>`:''}<h3>Как можно сказать</h3><p class="best" lang="en">${escape(turn.best)}</p>${variants(turn)}</div>`;
+    return `<div class="feedback ${result.status}" role="status"><span class="status ${result.status}">${statuses[result.status]}</span>${annotated(result.answer||session?.answers[session.index]?.answer||'',result)}<p class="explanation">${escape(result.status==='unknown'&&result.note?result.note:message)}</p>${result.fragment?`<p class="diagnostic">Фрагмент: <span lang="en">${escape(result.fragment)}</span></p>`:''}${result.correction?`<p class="diagnostic">Вариант исправления: <span lang="en">${escape(result.correction)}</span></p>`:''}${Array.isArray(result.diagnostics)&&result.diagnostics.length>1?`<ul class="diagnostic-list">${result.diagnostics.map(d=>`<li>${escape(d.note)}</li>`).join('')}</ul>`:""}${Array.isArray(result.grammarNotes)?`<p class="hint">${result.grammarNotes.map(escape).join(" ")}</p>`:""}${Array.isArray(result.blocks)&&result.blocks.length?`<details class="parse-details"><summary>Что распознано</summary><ul>${result.blocks.map(b=>`<li>${escape(b.role)}: <span lang="en">${escape(b.text)}</span></li>`).join('')}</ul></details>`:''}<h3>Как можно сказать</h3><p class="best" lang="en">${escape(turn.best)}</p>${variants(turn)}</div>`;
   }
   function renderPractice() {
     const d = current();
@@ -124,7 +135,7 @@
       <div class="meta"><span class="pill">${d.level}</span><span class="pill">${d.topicLabel}</span><span class="pill">${labels[d.length]}</span><span class="pill">${d.checking==='construction'?'Новая проверка':'Проверка по базе'}</span></div><h1>${escape(d.title)}</h1><p class="context">${escape(d.context)}</p><p class="hint">${escape(d.tone)}</p>
       <div class="conversation">${d.turns.slice(0, session.index).map((t, index) => {
         const a = session.answers[index];
-        return `<div class="exchange">${partner(t.en,t.ru,d.speaker,t.stage)}<div class="answer-history"><p class="speaker">Ты · <span class="status ${a.status}">${statuses[a.status]}</span></p><p class="original">${escape(t.task)}</p>${a.answer ? `<p lang="en">${escape(a.answer)}</p>` : '<p class="muted">Ответ пропущен</p>'}<p class="reference">Эталон: <span lang="en">${escape(t.best)}</span></p>${a.note?`<p class="hint">${escape(a.note)}</p>`:""}${a.correction?`<p class="hint">Вариант исправления: <span lang="en">${escape(a.correction)}</span></p>`:""}${variants(t)}<button class="text-button" data-copy-turn="${index}">Скопировать фрагмент</button></div></div>`;
+        return `<div class="exchange">${partner(t.en,t.ru,d.speaker,t.stage)}<div class="answer-history"><p class="speaker">Ты · <span class="status ${a.status}">${statuses[a.status]}</span></p><p class="original">${escape(t.task)}</p>${a.answer ? `${annotated(a.answer,a)||`<p lang="en">${escape(a.answer)}</p>`}` : '<p class="muted">Ответ пропущен</p>'}<p class="reference">Эталон: <span lang="en">${escape(t.best)}</span></p>${a.note?`<p class="hint">${escape(a.note)}</p>`:""}${a.correction?`<p class="hint">Вариант исправления: <span lang="en">${escape(a.correction)}</span></p>`:""}${variants(t)}<button class="text-button" data-copy-turn="${index}">Скопировать фрагмент</button></div></div>`;
       }).join('')}
       ${done ? partner(d.ending.en,d.ending.ru,d.speaker) : `<div id="active-turn">${partner(d.turns[session.index].en,d.turns[session.index].ru,d.speaker,d.turns[session.index].stage)}
         <section class="answer-card"><label for="answer">Твоя реплика — переведи на английский</label><p class="task">${escape(d.turns[session.index].task)}</p>
@@ -150,7 +161,7 @@
     screen = 'history-entry';
     app.innerHTML = `<section class="practice"><div class="practice-top"><button class="text-button" data-action="history">К истории</button><button class="text-button" data-history-copy="${escape(entry.runId)}">Скопировать диалог</button></div><div class="meta"><span class="pill">${escape(d.level)}</span><span class="pill">${escape(d.topicLabel)}</span></div><h1>${escape(d.title)}</h1><p class="context">${escape(d.context)}</p><p class="hint">${done ? 'Завершенный диалог' : 'Сохраненные ответы незавершенного диалога'} · ${escape(new Date(entry.updatedAt).toLocaleString('ru-RU'))}</p><div class="conversation">${entry.answers.map((a,index) => {
       const t = d.turns[index];
-      return `<div class="exchange">${partner(t.en,t.ru,d.speaker,t.stage)}<div class="answer-history"><p class="speaker">Ты · <span class="status ${a.status}">${statuses[a.status]}</span></p><p class="original">${escape(t.task)}</p><p lang="en">${a.answer ? escape(a.answer) : 'Ответ пропущен'}</p><p class="reference">Эталон: <span lang="en">${escape(t.best)}</span></p>${a.note ? `<p class="hint">${escape(a.note)}</p>` : ''}${a.correction?`<p class="hint">Вариант исправления: <span lang="en">${escape(a.correction)}</span></p>`:""}${variants(t)}</div></div>`;
+      return `<div class="exchange">${partner(t.en,t.ru,d.speaker,t.stage)}<div class="answer-history"><p class="speaker">Ты · <span class="status ${a.status}">${statuses[a.status]}</span></p><p class="original">${escape(t.task)}</p>${a.answer?annotated(a.answer,a)||`<p lang="en">${escape(a.answer)}</p>`:'<p>Ответ пропущен</p>'}<p class="reference">Эталон: <span lang="en">${escape(t.best)}</span></p>${a.note ? `<p class="hint">${escape(a.note)}</p>` : ''}${a.correction?`<p class="hint">Вариант исправления: <span lang="en">${escape(a.correction)}</span></p>`:""}${variants(t)}</div></div>`;
     }).join('')}${done ? partner(d.ending.en,d.ending.ru,d.speaker) : ''}</div></section>`;
     window.scrollTo(0,0);
   }
