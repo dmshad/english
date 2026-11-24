@@ -30,12 +30,20 @@ ui.click({action:'next'});ui.type('A draft');ui.click({action:'back'});eq(ui.sta
 const restored=setup(ui.store.get(KEY));restored.click({action:'resume'});ok(restored.html().includes('A draft'));
 for(const t of d.turns.slice(1)){restored.answer(t.best);restored.click({action:'next'});}eq(restored.state().completionCounts.text[d.id],1);eq(restored.state().session.phase,'done');restored.click({action:'next'});eq(restored.state().completionCounts.text[d.id],1);
 restored.click({action:'copy-all'});ok(restored.el('copy-text').value.includes(d.ending.en));ok(restored.el('copy-dialog').open);
-restored.click({action:'replay'});eq(restored.state().session.phase,'intro');restored.click({action:'intro-next'});restored.finish(d);eq(restored.state().completionCounts.text[d.id],2);eq(new Set(restored.state().history.map(h=>h.runId)).size,2);
+restored.click({action:'replay'});eq(restored.state().session.phase,'intro');restored.click({action:'intro-next'});restored.finish(d);eq(restored.state().completionCounts.text[d.id],1);eq(new Set(restored.state().history.map(h=>h.runId)).size,2);
 // Speech starts with both texts absent and remains a separately counted mode.
 const audio=setup(restored.store.get(KEY));audio.start(d,'speech');audio.click({action:'intro-next'});ok(!audio.html().includes(d.turns[0].en));ok(!audio.html().includes(d.turns[0].task));ok(audio.html().includes('data-action="show-task"'));audio.answer(d.turns[0].best);eq(audio.state().session.answers.length,0);
 audio.click({action:'listen'});audio.click({action:'listen'});eq(audio.plays.length,2);eq(audio.plays[0].text,d.turns[0].en);eq(audio.plays[0].rate,1);
 audio.click({speed:'1'});audio.click({action:'listen'});eq(audio.plays.at(-1).rate,.6);eq((audio.html().match(/data-speed=/g)||[]).length,5);
-audio.click({action:'toggle-text'});ok(audio.html().includes(d.turns[0].en));ok(!audio.html().includes(d.turns[0].task));audio.click({action:'translation'});ok(audio.html().includes(d.turns[0].ru));audio.click({action:'toggle-text'});ok(!audio.html().includes(d.turns[0].en));ok(!audio.html().includes(d.turns[0].ru));audio.click({action:'show-task'});ok(audio.html().includes(d.turns[0].task));audio.finish(d);eq(audio.state().completionCounts.speech[d.id],1);eq(audio.state().completionCounts.text[d.id],2);eq(audio.state().session.mode,'speech');
+audio.click({action:'toggle-text'});ok(audio.html().includes(d.turns[0].en));ok(!audio.html().includes(d.turns[0].task));audio.click({action:'translation'});ok(audio.html().includes(d.turns[0].ru));audio.click({action:'toggle-text'});ok(!audio.html().includes(d.turns[0].en));ok(!audio.html().includes(d.turns[0].ru));audio.click({action:'show-task'});ok(audio.html().includes(d.turns[0].task));audio.finish(d);eq(audio.state().completionCounts.speech[d.id],1);eq(audio.state().completionCounts.text[d.id],1);eq(audio.state().session.mode,'speech');
+// Replays remain one counted completion even across several repeats and reloads.
+const repeat=setup(restored.store.get(KEY));repeat.click({action:'resume'});repeat.click({action:'replay'});eq(repeat.state().session.practiceReplay,true);repeat.click({action:'intro-next'});
+for(const t of d.turns.slice(0,3)){repeat.answer(t.best);repeat.click({action:'next'});}
+const resumedRepeat=setup(repeat.store.get(KEY));resumedRepeat.click({action:'resume'});for(const t of d.turns.slice(3)){resumedRepeat.answer(t.best);resumedRepeat.click({action:'next'});}
+eq(resumedRepeat.state().completionCounts.text[d.id],1);eq(resumedRepeat.state().session.completedRecorded,true);ok(resumedRepeat.state().history.at(-1).practiceReplay);
+resumedRepeat.click({action:'replay'});resumedRepeat.click({action:'intro-next'});resumedRepeat.finish(d);eq(resumedRepeat.state().completionCounts.text[d.id],1);
+resumedRepeat.start(d);resumedRepeat.click({action:'intro-next'});resumedRepeat.finish(d);eq(resumedRepeat.state().completionCounts.text[d.id],2);eq(resumedRepeat.state().session.practiceReplay,false);
+const speechRepeat=setup(audio.store.get(KEY));speechRepeat.click({action:'replay'});speechRepeat.click({action:'intro-next'});speechRepeat.finish(d);eq(speechRepeat.state().completionCounts.speech[d.id],1);eq(speechRepeat.state().completionCounts.text[d.id],1);
 // Minimal-round selection, not merely a lifetime completed flag.
 const P=audio.window.OfflineProgress,counts={text:{a:2,b:1,c:1},speech:{}};
 eq(P.eligible([{id:'a'},{id:'b'},{id:'c'}],counts,'text').map(d=>d.id).join(','),'b,c');eq(P.eligible([{id:'a'},{id:'b'}],counts,'speech').length,2);
