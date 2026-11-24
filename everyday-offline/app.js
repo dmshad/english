@@ -1,258 +1,120 @@
-(function () {
+(function(){
   'use strict';
-  const $ = id => document.getElementById(id);
-  const app = $('app');
-  const E = window.OfflineEngine;
-  const dialogues = window.DIALOGUES.filter(d=>d.checking==='construction');
-  const KEY = 'everyday-offline-v1';
-  const labels = {short: '4 реплики · прежняя версия', medium: '6 реплик · прежняя версия', long: '10 реплик'};
-  const statuses = {correct: 'Верно', acceptable: 'Допустимо', error: 'Ошибка', unknown: 'Не распознано', revealed: 'Без ответа'};
-  const escape = text => String(text ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-  let persistent = true;
-  let saved = {};
-  try { saved = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; }
-  catch (_) { persistent = false; }
-  let settings = {level: 'A1', topic: 'random', ...saved.settings, length: 'long'};
-  if (!['A1','A2','B1','B2','C1','C2'].includes(settings.level)) settings.level = 'A1';
-  const topics = [...new Map(dialogues.map(d => [d.topic, d.topicLabel])).entries()];
-  if (settings.topic !== 'random' && !topics.some(([id]) => id === settings.topic)) settings.topic = 'random';
-  let journal = Array.isArray(saved.journal) ? saved.journal.filter(item => item && typeof item.answer === 'string' && typeof item.task === 'string') : [];
-  const completedIds = new Set(Array.isArray(saved.completedIds) ? saved.completedIds.filter(id => typeof id === 'string') : []);
-  for(const m of window.PROGRESS_MIGRATIONS||[{revision:window.CONTENT_REVISION,ids:window.REVISED_DIALOGUE_IDS}])if(Number(saved.progressRevision||0)<m.revision)for(const id of m.ids)completedIds.delete(id);
-  const validAnswer = a => a && Object.hasOwn(statuses, a.status) && typeof a.answer === 'string';
-  function validArchive(entry) {
-    const d = entry?.dialogue;
-    return typeof entry?.runId === 'string' && typeof entry.updatedAt === 'string' &&
-      Number.isInteger(entry.index) && Array.isArray(entry.answers) && entry.answers.length > 0 && entry.answers.every(validAnswer) &&
-      typeof d?.id === 'string' && typeof d.title === 'string' && typeof d.speaker === 'string' && typeof d.ending?.en === 'string' &&
-      Array.isArray(d.turns) && entry.index >= 0 && entry.index <= d.turns.length && entry.answers.length >= entry.index && entry.answers.length <= d.turns.length &&
-      d.turns.every(t => t && typeof t.en === 'string' && typeof t.ru === 'string' && typeof t.task === 'string' && typeof t.best === 'string' &&
-        Array.isArray(t.natural) && t.natural.every(v => typeof v === 'string') && Array.isArray(t.acceptable) && t.acceptable.every(v => v && typeof v.text === 'string'));
+  window.APP_VERSION='0.11';
+  const $=id=>document.getElementById(id),app=$('app'),E=window.OfflineEngine,P=window.OfflineProgress,S=window.OfflineSpeech;
+  const dialogues=window.DIALOGUES.filter(d=>d.checking==='construction'),KEY='everyday-offline-v1';
+  const statusNames={correct:'Верно',acceptable:'Понятно, но обычно так не говорят или неуместно в этой ситуации',error:'Ошибка',unknown:'Не определено',revealed:'Не определено'};
+  const esc=t=>String(t??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const modeName=m=>m==='speech'?'Речь':'Текст';
+  let saved={},persistent=true;try{saved=JSON.parse(localStorage.getItem(KEY)||'{}')||{};}catch(_){persistent=false;}
+  const availableLevels=['A1','A2','B1','B2','C1','C2'].filter(l=>dialogues.some(d=>d.level===l));
+  const settings={level:availableLevels.includes(saved.settings?.level)?saved.settings.level:availableLevels[0],topic:'random',mode:saved.settings?.mode==='speech'?'speech':'text',theme:saved.settings?.theme==='dark'?'dark':'light',speed:[1,2,3,4,5].includes(saved.settings?.speed)?saved.settings.speed:5};
+  const completionCounts=P.migrate(saved,window.CONTENT_REVISION,window.PROGRESS_MIGRATIONS);
+  const validAnswer=a=>a&&Object.hasOwn(statusNames,a.status)&&typeof a.answer==='string';
+  const validArchive=h=>h&&typeof h.runId==='string'&&typeof h.dialogue?.id==='string'&&typeof h.dialogue.title==='string'&&typeof h.dialogue.context==='string'&&typeof h.dialogue.speaker==='string'&&typeof h.dialogue.ending?.en==='string'&&Array.isArray(h.dialogue.turns)&&h.dialogue.turns.every(t=>typeof t?.en==='string'&&typeof t.ru==='string'&&typeof t.task==='string'&&typeof t.best==='string'&&Array.isArray(t.natural)&&Array.isArray(t.acceptable))&&Array.isArray(h.answers)&&h.answers.length>0&&h.answers.length<=h.dialogue.turns.length&&h.answers.every(validAnswer)&&Number.isInteger(h.index)&&h.index>=0&&h.index<=h.dialogue.turns.length&&h.answers.length>=h.index;
+  let history=(Array.isArray(saved.history)?saved.history:[]).filter(validArchive).slice(-6).map(h=>({...h,mode:h.mode==='speech'?'speech':'text'}));
+  let journal=(Array.isArray(saved.journal)?saved.journal:[]).filter(j=>j&&typeof j.answer==='string'&&typeof j.task==='string');
+  let session=saved.session,contentUpdated=Boolean(session&&session.contentRevision!==window.CONTENT_REVISION);
+  const stored=dialogues.find(d=>d.id===session?.id);
+  if(contentUpdated||!stored||!Number.isInteger(session?.index)||session.index<0||session.index>stored.turns.length||!Array.isArray(session.answers)||session.answers.length<session.index||session.answers.length>stored.turns.length||!session.answers.every(validAnswer))session=null;
+  if(session){if(!Number.isInteger(session.viewIndex)||session.viewIndex<0||session.viewIndex>session.index)session.viewIndex=session.index;session.mode=session.mode==='speech'?'speech':'text';session.draft=typeof session.draft==='string'?session.draft:'';session.views=session.views&&typeof session.views==='object'?session.views:{};session.runId=typeof session.runId==='string'?session.runId:runId();session.completedRecorded=Boolean(session.completedRecorded||session.index===stored.turns.length);session.phase=['intro','work','review','done'].includes(session.phase)?session.phase:session.index===stored.turns.length?'done':session.answers[session.index]?'review':'work';}
+  let screen='home',viewIndex=session?.index||0,variantsOpen=false,toastTimer;
+  function runId(){return Date.now()+'-'+Math.random().toString(36).slice(2);}
+  function current(){return dialogues.find(d=>d.id===session?.id);}
+  function save(){try{localStorage.setItem(KEY,JSON.stringify({version:4,progressRevision:window.CONTENT_REVISION,settings,completionCounts,history,journal,session}));}catch(_){persistent=false;}}
+  function applyTheme(){document.documentElement.dataset.theme=settings.theme;document.querySelector('meta[name="theme-color"]')?.setAttribute('content',settings.theme==='dark'?'#111014':'#f5f7fb');}
+  function toast(t){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,2600);}
+  function stop(){S.stop();}
+  function page(name,html){screen=name;app.innerHTML=html;window.scrollTo(0,0);}
+  function nav(back,next,action='next',disabled=false){return `<div class="nav"><button type="button" data-action="${back}">Назад</button><button type="button" class="primary" data-action="${action}" ${disabled?'disabled':''}>${next}</button></div>`;}
+  function top(title,counter=''){return `<div class="topline"><div class="screen-title">${esc(title)}</div><span class="counter">${esc(counter)}</span><button class="exit" type="button" data-action="home" aria-label="На главный экран">×</button></div>`;}
+  function setPhase(phase){session.phase=phase;session.viewIndex=viewIndex;save();}
+  function choices(){return dialogues.filter(d=>d.level===settings.level&&(settings.topic==='random'||d.topic===settings.topic));}
+  function renderHome(){
+    const topics=[...new Map(dialogues.filter(d=>d.level===settings.level).map(d=>[d.topic,d.topicLabel.replace(/ · пилот$/,'')])).entries()];
+    page('home',`<section class="screen home">
+      <div class="theme-row"><span>Оформление</span><div class="segments theme-control"><button type="button" data-theme="light" aria-pressed="${settings.theme==='light'}">Светлое</button><button type="button" data-theme="dark" aria-pressed="${settings.theme==='dark'}">Темное</button></div></div>
+      <fieldset class="field"><legend>Уровень</legend><div class="levels">${['A1','A2','B1','B2','C1','C2'].map(l=>`<button type="button" data-level="${l}" aria-pressed="${l===settings.level}" ${availableLevels.includes(l)?'':'disabled'}>${l}</button>`).join('')}</div></fieldset>
+      <div class="field"><label for="topic" class="field-label">Тема</label><select id="topic"><option value="random">Случайная</option>${topics.map(([id,label])=>`<option value="${esc(id)}" ${id===settings.topic?'selected':''}>${esc(label)}</option>`).join('')}</select></div>
+      <fieldset class="field"><legend>Режим</legend><div class="segments"><button type="button" data-mode="text" aria-pressed="${settings.mode==='text'}">Текст</button><button type="button" data-mode="speech" aria-pressed="${settings.mode==='speech'}">Речь</button></div></fieldset>
+      <div class="home-actions"><button type="button" data-action="history">История</button>${session&&session.index<current().turns.length?'<button type="button" data-action="resume">Продолжить</button>':''}<button type="button" class="primary" data-action="start" ${choices().length?'':'disabled'}>Начать диалог</button></div>
+      ${!persistent?'<p class="storage-error" role="status">Сохранение недоступно</p>':''}${contentUpdated?'<p class="storage-error" role="status">Сюжет обновлен. Начни диалог заново.</p>':''}</section>`);
   }
-  let history = Array.isArray(saved.history) ? saved.history.filter(validArchive).slice(-6) : [];
-  let session = saved.session;
-  let contentUpdated = Boolean(session && session.contentRevision !== window.CONTENT_REVISION);
-  if (contentUpdated) session = null;
-  const storedDialogue = dialogues.find(d => d.id === session?.id);
-  if (!storedDialogue || !Number.isInteger(session?.index) || session.index < 0 || session.index > storedDialogue.turns.length ||
-      !Array.isArray(session.answers) || session.answers.length < session.index ||
-      session.answers.length > storedDialogue.turns.length || session.answers.some(a => !validAnswer(a))) session = null;
-  if (session) session.draft = typeof session.draft === 'string' ? session.draft : '';
-  let screen = 'home';
-  let selectedId = '';
-  let toastTimer;
-
-  function save() {
-    try { localStorage.setItem(KEY, JSON.stringify({version: 3, progressRevision: window.CONTENT_REVISION, settings, journal, completedIds: [...completedIds], history, session})); }
-    catch (_) { persistent = false; }
-    $('journal-count').textContent = journal.length;
+  function home(){stop();settings.topic='random';save();renderHome();}
+  function begin(id){
+    stop();const pool=P.eligible(choices(),completionCounts,settings.mode);const d=id?dialogues.find(d=>d.id===id):pool[Math.floor(Math.random()*pool.length)];if(!d)return;
+    session={id:d.id,mode:settings.mode,contentRevision:window.CONTENT_REVISION,index:0,answers:[],draft:'',views:{},runId:runId(),startedAt:new Date().toISOString(),completedRecorded:false,phase:'intro'};viewIndex=0;contentUpdated=false;save();renderIntro();
   }
-  function storageNote() {
-    return persistent ? '' : '<div class="notice" role="status">Хранилище браузера недоступно. Прогресс и журнал сохраняются только до закрытия страницы. Скачай журнал перед выходом.</div>';
+  function renderIntro(){stop();setPhase('intro');const d=current();page('intro',`<section class="screen intro"><div class="intro-body"><h1>${esc(d.title)}</h1><p class="context">${esc(d.context)}</p></div>${nav('home','Дальше','intro-next')}</section>`);}
+  const listenIcon='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/></svg>';
+  function listen(ending=false){return `<button type="button" class="listen" data-action="${ending?'listen-ending':'listen'}" aria-label="Прослушать">${listenIcon}</button>`;}
+  function speeds(){return `<div class="speeds" role="group" aria-label="Скорость речи">${S.rates.map((rate,i)=>`<button type="button" data-speed="${i+1}" aria-label="Скорость ${i+1} из 5" aria-pressed="${settings.speed===i+1}">${rate.toFixed(1)}×</button>`).join('')}</div>`;}
+  function view(){return session.views[viewIndex]||(session.views[viewIndex]={text:false,translation:false,task:false});}
+  function renderWork(){
+    stop();const d=current();if(!d)return home();if(viewIndex>=d.turns.length)return renderDone();setPhase('work');const t=d.turns[viewIndex],a=session.answers[viewIndex],v=view(),audio=session.mode==='speech',taskShown=!audio||v.task;
+    const english=!audio||v.text;
+    page('work',`<section class="screen work">${top(d.title,`${viewIndex+1}/${d.turns.length}`)}<div class="work-grid">
+      <section class="panel partner-panel" aria-label="Реплика собеседника"><div class="partner-scroll">${t.stage?`<p class="scene-note">${esc(t.stage)}</p>`:''}${english?`<p class="english" lang="en">${esc(t.en)}</p>${v.translation?`<p class="translation">${esc(t.ru)}</p>`:''}`:`<div class="audio-main">${listen()}${speeds()}</div>`}</div>
+      <div class="partner-controls">${english?listen():''}${audio?`<button type="button" class="toggle" data-action="toggle-text">${v.text?'Скрыть текст':'Посмотреть текст'}</button>`:''}${english?`<button type="button" class="toggle" data-action="translation">${v.translation?'Скрыть перевод':'Перевод'}</button>`:''}${audio&&english?speeds():''}</div></section>
+      <section class="panel task-panel" aria-label="Твоя реплика">${taskShown?`<p class="task">${esc(t.task)}</p>`:'<button type="button" data-action="show-task">Показать</button>'}</section>
+      <form id="answer-form" class="panel input-panel"><textarea id="answer" aria-label="Твой ответ" lang="en" spellcheck="false" autocomplete="off" autocapitalize="sentences" ${a?'readonly class="read-only"':''} ${taskShown?'':'disabled'}>${esc(a?a.answer:session.draft)}</textarea></form>
+      </div><div class="nav"><button type="button" data-action="back">Назад</button>${a?'<button type="button" class="primary" data-action="show-review">Дальше</button>':`<button type="submit" form="answer-form" class="primary" id="check-answer" ${taskShown&&session.draft.trim()?'':'disabled'}>Проверить</button>`}</div></section>`);
   }
-  function toast(message) {
-    $('toast').textContent = message;
-    $('toast').hidden = false;
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => { $('toast').hidden = true; }, 3500);
+  function annotated(answer,a){
+    if(!Array.isArray(a.annotations))return `<div class="annotated-answer" lang="en">${esc(answer)}</div>`;
+    let out='',cursor=0;for(const t of a.annotations){if(!Number.isInteger(t.start)||!Number.isInteger(t.end)||t.start<cursor||t.end>answer.length)continue;out+=esc(answer.slice(cursor,t.start));for(const gap of a.insertions||[])if(gap.at===t.start)out+=`<span class="word-error" title="${esc(gap.note)}">[${esc(gap.label)}]</span> `;out+=`<span class="word-${['correct','acceptable','error'].includes(t.color)?t.color:'neutral'}" title="${esc(t.note||'')}">${esc(answer.slice(t.start,t.end))}</span>`;cursor=t.end;}out+=esc(answer.slice(cursor));return `<div class="annotated-answer" lang="en">${out}</div>`;
   }
-  function current() { return dialogues.find(d => d.id === session?.id); }
-  function pool() { return dialogues.filter(d => d.level === settings.level && d.length === settings.length && (settings.topic === 'random' || d.topic === settings.topic)); }
-  function availablePool() {
-    const choices = pool();
-    const ids = E.eligible(choices.map(d => d.id), [...completedIds]);
-    return choices.filter(d => ids.includes(d.id));
-  }
-  function rememberSession() {
-    const d = current();
-    if (!d || !session.answers.length) return;
-    if (!session.runId) session.runId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    if (session.index === d.turns.length) completedIds.add(d.id);
-    const snapshot = JSON.parse(JSON.stringify({runId: session.runId, index: session.index, startedAt: session.startedAt,
-      updatedAt: new Date().toISOString(), answers: session.answers, dialogue: d}));
-    history = [...history.filter(entry => entry.runId !== session.runId), snapshot].slice(-6);
-  }
-  function renderHome() {
-    screen = 'home';
-    const choices = pool();
-    const available = availablePool();
-    const remaining = choices.filter(d => !completedIds.has(d.id)).length;
-    const previous = current();
-    app.innerHTML = `${storageNote()}${contentUpdated ? '<p class="notice">Сюжет обновился. Текущий диалог старой версии нужно начать заново. История и журнал нераспознанных ответов сохранены.</p>' : ''}<div class="menu-tools"><button class="secondary" data-action="history">История · ${history.length}</button><button class="text-button" data-action="update">Загрузить свежую версию</button></div><section class="hero"><div class="hero-copy"><div class="eyebrow">Практика настоящих разговоров</div>
-      <h1>Маленький диалог.<br>Больше уверенности.</h1><p>Переводи реплики на английский и пробуй, как это звучит в обычной жизни. Один разговор за раз.</p>
-      <div class="features"><span class="pill">Живой английский</span><span class="pill">Без интернета</span><span class="pill">Без таймера</span></div>
-      <div class="sample"><small>В кафе это может звучать просто</small><p>“Small, please.”</p><small>Короткий ответ тоже бывает лучшим ответом.</small></div></div>
-      <div class="setup-card"><h2>Твой следующий разговор</h2>
-      <div class="pilot-offer"><h3>Шесть новых разговоров</h3><p class="hint">Восемь диалогов с разбором конструкций, грамматики и известных ошибок. Шесть новых — для следующего испытания.</p><div class="actions">${dialogues.filter(d=>d.id.startsWith('batch-')).map(d=>`<button class="quiet" data-pilot="${d.id}">${escape(d.title)}</button>`).join('')}</div><h3>Предыдущие два диалога</h3><div class="actions">${dialogues.filter(d=>!d.id.startsWith('batch-')).map(d=>`<button class="quiet" data-pilot="${d.id}">${escape(d.title)}</button>`).join('')}</div></div>
-      ${previous ? `<div class="resume"><p><strong>${escape(previous.title)}</strong><br><small>${session.index === previous.turns.length ? 'Диалог завершен — результаты сохранены' : `Сохранено: ${session.index} из ${previous.turns.length} реплик`}</small></p><div class="actions"><button class="quiet" data-action="resume">${session.index === previous.turns.length ? 'Посмотреть результат' : 'Продолжить'}</button><button class="text-button" data-action="discard">Убрать сохраненный диалог</button></div></div>` : ''}
-      <fieldset class="field"><legend>Уровень английского</legend><div class="levels">${['A1','A2','B1','B2','C1','C2'].map(level => `<button class="choice" data-level="${level}" aria-pressed="${settings.level === level}">${level}</button>`).join('')}</div></fieldset>
-      <div class="field"><label for="topic">Тема</label><select id="topic"><option value="random" ${settings.topic === 'random' ? 'selected' : ''}>Случайная тема</option>${topics.map(([id,label]) => `<option value="${escape(id)}" ${settings.topic === id ? 'selected' : ''}>${escape(label)}</option>`).join('')}</select></div>
-      <p class="hint">В каждом диалоге — 10 твоих реплик.</p>
-      ${choices.length ? `<div class="field"><label for="dialogue-choice">Ситуация</label><select id="dialogue-choice"><option value="">Случайная из ${available.length}${remaining ? ' непройденных' : ' — повторение'}</option>${choices.map(d => `<option value="${d.id}" ${selectedId === d.id ? 'selected' : ''} ${remaining && completedIds.has(d.id) ? 'disabled' : ''}>${escape(d.title)}${completedIds.has(d.id) ? ' · пройден' : ''}</option>`).join('')}</select><p class="hint">${remaining ? `Еще не пройдено: ${remaining} из ${choices.length}.` : 'Все диалоги этого выбора пройдены — можно повторять.'}</p></div>` : `<p class="notice">Для ${settings.level} в этом выборе диалогов пока нет. Выбери A1 или другую тему.</p>`}
-      <button class="primary full" data-action="start" ${choices.length ? '' : 'disabled'}>Начать диалог</button>
-      <p class="setup-note">Диалогов в подборке: ${dialogues.length}. Тем: ${topics.length}. Каждый диалог — 10 твоих реплик. Сначала предлагаются непройденные диалоги.</p></div></section>`;
-  }
-  function begin(forceRandom = false) {
-    const choices = availablePool();
-    if (!choices.length) return;
-    const pickPool = forceRandom && choices.length > 1 ? choices.filter(d => d.id !== session?.id) : choices;
-    const id = !forceRandom && choices.some(d => d.id === selectedId) ? selectedId : E.pick(pickPool.map(d => d.id), []);
-    session = {id, contentRevision: window.CONTENT_REVISION, index: 0, answers: [], draft: '', startedAt: new Date().toISOString()};
-    contentUpdated = false;
-    save(); screen = 'practice'; renderPractice(); window.scrollTo(0, 0);
-  }
-  function partner(en, ru, speaker, stage = '') {
-    return `${stage ? `<p class="scene-note">${escape(stage)}</p>` : ''}<p class="speaker">${escape(speaker)}</p><div class="partner"><p class="english" lang="en">${escape(en)}</p><details><summary>Показать перевод</summary><p class="translation">${escape(ru)}</p></details></div>`;
-  }
-  function variants(turn) {
-    const choices = E.preferred(turn);
-    return `<details class="variants"><summary>Частые варианты ответа · ${choices.length}</summary><ul lang="en">${choices.map(item => `<li>${escape(item)}</li>`).join('')}</ul><p class="hint">Показано не больше 10 естественных вариантов для этой ситуации. Приложение распознает и другие формулировки.</p></details>`;
-  }
-  function annotated(answer,record){
-    if(!Array.isArray(record.annotations))return '';
-    let out='',cursor=0;
-    for(const token of record.annotations){
-      out+=escape(answer.slice(cursor,token.start));
-      for(const gap of record.insertions||[])if(gap.at===token.start)out+=`<span class="word-error missing-word" title="${escape(gap.note)}">[${escape(gap.label)}]</span> `;
-      out+=`<span class="word-${['correct','acceptable','error'].includes(token.color)?token.color:'neutral'}" title="${escape(token.note||'')}">${escape(answer.slice(token.start,token.end))}</span>`;cursor=token.end;
-    }
-    out+=escape(answer.slice(cursor));
-    return `<div class="annotated-answer" lang="en">${out}</div><p class="hint">Зеленое — распознано · желтое — неудачно здесь · красное — ошибка · нейтральное — нет уверенной оценки. Скобки обозначают пропущенное слово.</p>`;
-  }
-  function feedback(result, turn) {
-    const message = result.status === 'unknown' ? 'В базе пока нет такого ответа. Возможно, он правильный. Попытка добавлена в журнал для разбора.' :
-      result.status === 'acceptable' || result.status === 'error' ? result.note : result.status === 'revealed' ? 'Можно запомнить эту фразу и продолжить.' : 'Так естественно сказать в этой ситуации.';
-    return `<div class="feedback ${result.status}" role="status"><span class="status ${result.status}">${statuses[result.status]}</span>${annotated(result.answer||session?.answers[session.index]?.answer||'',result)}<p class="explanation">${escape(result.status==='unknown'&&result.note?result.note:message)}</p>${result.fragment?`<p class="diagnostic">Фрагмент: <span lang="en">${escape(result.fragment)}</span></p>`:''}${result.correction?`<p class="diagnostic">Вариант исправления: <span lang="en">${escape(result.correction)}</span></p>`:''}${result.orthographyNote?`<p class="hint">${escape(result.orthographyNote)}</p>`:""}${Array.isArray(result.diagnostics)&&result.diagnostics.length>1?`<ul class="diagnostic-list">${result.diagnostics.map(d=>`<li>${escape(d.note)}</li>`).join('')}</ul>`:""}${Array.isArray(result.grammarNotes)?`<p class="hint">${result.grammarNotes.map(escape).join(" ")}</p>`:""}${Array.isArray(result.blocks)&&result.blocks.length?`<details class="parse-details"><summary>Что распознано</summary><ul>${result.blocks.map(b=>`<li>${escape(b.role)}: <span lang="en">${escape(b.text)}</span></li>`).join('')}</ul></details>`:''}<h3>Как можно сказать</h3><p class="best" lang="en">${escape(turn.best)}</p>${variants(turn)}</div>`;
-  }
-  function renderPractice() {
-    const d = current();
-    if (!d) { renderHome(); return; }
-    screen = 'practice';
-    const done = session.index >= d.turns.length;
-    const record = session.answers[session.index];
-    app.innerHTML = `<section class="practice">${storageNote()}<div class="practice-top"><button class="text-button" data-action="home">К выбору диалога</button><span class="progress-label">${done ? 'Завершено' : `Твоя реплика ${session.index + 1} из ${d.turns.length}`}</span></div>
-      <div class="progress" role="progressbar" aria-label="Пройдено реплик" aria-valuemin="0" aria-valuemax="${d.turns.length}" aria-valuenow="${session.index}"><div class="progress-fill" style="width:${100 * session.index / d.turns.length}%"></div></div>
-      <div class="meta"><span class="pill">${d.level}</span><span class="pill">${d.topicLabel}</span><span class="pill">${labels[d.length]}</span><span class="pill">${d.checking==='construction'?'Новая проверка':'Проверка по базе'}</span></div><h1>${escape(d.title)}</h1><p class="context">${escape(d.context)}</p><p class="hint">${escape(d.tone)}</p>
-      <div class="conversation">${d.turns.slice(0, session.index).map((t, index) => {
-        const a = session.answers[index];
-        return `<div class="exchange">${partner(t.en,t.ru,d.speaker,t.stage)}<div class="answer-history"><p class="speaker">Ты · <span class="status ${a.status}">${statuses[a.status]}</span></p><p class="original">${escape(t.task)}</p>${a.answer ? `${annotated(a.answer,a)||`<p lang="en">${escape(a.answer)}</p>`}` : '<p class="muted">Ответ пропущен</p>'}<p class="reference">Эталон: <span lang="en">${escape(t.best)}</span></p>${a.note?`<p class="hint">${escape(a.note)}</p>`:""}${a.correction?`<p class="hint">Вариант исправления: <span lang="en">${escape(a.correction)}</span></p>`:""}${variants(t)}<button class="text-button" data-copy-turn="${index}">Скопировать фрагмент</button></div></div>`;
-      }).join('')}
-      ${done ? partner(d.ending.en,d.ending.ru,d.speaker) : `<div id="active-turn">${partner(d.turns[session.index].en,d.turns[session.index].ru,d.speaker,d.turns[session.index].stage)}
-        <section class="answer-card"><label for="answer">Твоя реплика — переведи на английский</label><p class="task">${escape(d.turns[session.index].task)}</p>
-        <form id="answer-form"><textarea id="answer" lang="en" spellcheck="false" autocomplete="off" autocapitalize="sentences" placeholder="Напиши, как бы ты это сказал…" ${record ? 'readonly' : ''}>${escape(record ? record.answer : session.draft)}</textarea>
-        ${record ? '' : '<div class="actions"><button class="primary" type="submit">Проверить</button><button class="secondary" type="button" data-action="reveal">Не знаю, показать ответ</button></div><p class="hint">Enter — проверить · Shift + Enter — новая строка</p>'}</form>
-        ${record ? `${feedback(record,d.turns[session.index])}<div class="actions"><button class="primary" data-action="next">${session.index === d.turns.length - 1 ? 'Завершить диалог' : 'Следующая реплика'}</button><button class="secondary" data-action="retry">Изменить ответ</button><button class="text-button" data-copy-turn="${session.index}">Скопировать фрагмент</button></div>` : ''}</section></div>`}
-      </div>${done ? completion(d) : ''}
-      <div class="actions"><button class="text-button" data-action="copy-all">Скопировать ${done ? 'весь диалог' : 'диалог до этого места'}</button></div></section>`;
-    if (!record && !done) $('answer').focus({preventScroll: true});
-  }
-  function completion(d) {
-    const counts = key => session.answers.filter(a => a.status === key).length;
-    return `<div class="completion" id="completion"><div class="eyebrow">Еще один разговор позади</div><h2>Диалог пройден</h2><p>Посмотри на удачные фразы. К ним можно вернуться в переписке выше.</p><div class="stats">${[['correct','Верно'],['acceptable','Допустимо'],['error','Ошибка'],['unknown','Не распознано'],['revealed','Без ответа']].map(([key,label]) => `<div class="stat"><strong>${counts(key)}</strong>${label}</div>`).join('')}</div><div class="actions"><button class="primary" data-action="another">Еще одна ситуация</button><button class="secondary" data-action="home">Изменить настройки</button></div></div>`;
-  }
-  function renderHistory() {
-    screen = 'history';
-    app.innerHTML = `<section class="practice">${storageNote()}<div class="practice-top"><button class="text-button" data-action="home">В главное меню</button><span class="progress-label">${history.length} из 6 записей</span></div><h1>История</h1><p class="context">Последние шесть разговоров с твоими ответами. Старые записи удаляются автоматически. Отметки о пройденных диалогах сохраняются отдельно.</p>${history.length ? [...history].reverse().map(entry => `<article class="card history-card"><div class="meta"><span class="pill">${escape(entry.dialogue.level)}</span><span class="pill">${escape(entry.dialogue.topicLabel)}</span><span class="pill">${labels[entry.dialogue.length] || ''}</span></div><h2>${escape(entry.dialogue.title)}</h2><p class="hint">${escape(new Date(entry.updatedAt).toLocaleString('ru-RU'))} · ${entry.index === entry.dialogue.turns.length ? 'Завершен' : `В процессе · ${entry.answers.length} из ${entry.dialogue.turns.length} реплик`}</p><div class="actions"><button class="secondary" data-history-view="${escape(entry.runId)}">Посмотреть ответы</button><button class="text-button" data-history-copy="${escape(entry.runId)}">Скопировать диалог</button></div></article>`).join('') : '<p class="empty-state">Пока здесь пусто. Разговор появится после первого проверенного ответа.</p>'}</section>`;
-    window.scrollTo(0,0);
-  }
-  function renderHistoryEntry(entry) {
-    const d = entry.dialogue;
-    const done = entry.index === d.turns.length;
-    screen = 'history-entry';
-    app.innerHTML = `<section class="practice"><div class="practice-top"><button class="text-button" data-action="history">К истории</button><button class="text-button" data-history-copy="${escape(entry.runId)}">Скопировать диалог</button></div><div class="meta"><span class="pill">${escape(d.level)}</span><span class="pill">${escape(d.topicLabel)}</span></div><h1>${escape(d.title)}</h1><p class="context">${escape(d.context)}</p><p class="hint">${done ? 'Завершенный диалог' : 'Сохраненные ответы незавершенного диалога'} · ${escape(new Date(entry.updatedAt).toLocaleString('ru-RU'))}</p><div class="conversation">${entry.answers.map((a,index) => {
-      const t = d.turns[index];
-      return `<div class="exchange">${partner(t.en,t.ru,d.speaker,t.stage)}<div class="answer-history"><p class="speaker">Ты · <span class="status ${a.status}">${statuses[a.status]}</span></p><p class="original">${escape(t.task)}</p>${a.answer?annotated(a.answer,a)||`<p lang="en">${escape(a.answer)}</p>`:'<p>Ответ пропущен</p>'}<p class="reference">Эталон: <span lang="en">${escape(t.best)}</span></p>${a.note ? `<p class="hint">${escape(a.note)}</p>` : ''}${a.correction?`<p class="hint">Вариант исправления: <span lang="en">${escape(a.correction)}</span></p>`:""}${variants(t)}</div></div>`;
-    }).join('')}${done ? partner(d.ending.en,d.ending.ru,d.speaker) : ''}</div></section>`;
-    window.scrollTo(0,0);
-  }
-  function submit(reveal = false) {
-    const d = current();
-    if (!d || session.index >= d.turns.length || session.answers[session.index]) return;
-    const answer = $('answer').value.trim();
-    if (!reveal && !answer) { toast('Сначала напиши ответ или открой эталон.'); $('answer').focus(); return; }
-    const t = d.turns[session.index];
-    const result = reveal ? {status:'revealed'} : E.check(answer, t);
-    const record = {...result, answer, at: new Date().toISOString()};
-    session.answers[session.index] = record;
-    session.draft = answer;
-    if (result.status === 'unknown') journal.push({at: record.at, dialogueId: d.id, title: d.title, level: d.level, context: d.context, partner: t.en, task: t.task, answer, best: t.best, turn: session.index + 1});
-    rememberSession(); save(); renderPractice();
-    document.querySelector('.feedback')?.scrollIntoView({block:'nearest',behavior:'auto'});
-    document.querySelector('[data-action="next"]')?.focus({preventScroll:true});
-  }
-  function fragment(index, d = current(), source = session) {
-    const t = d.turns[index], a = source.answers[index];
-    return `${t.stage ? t.stage + '\n' : ''}${d.speaker}: ${t.en}\nПеревод: ${t.ru}\nМоя заданная реплика: ${t.task}\nМой ответ: ${a?.answer || '(нет ответа)'}\nРезультат: ${a ? statuses[a.status] : 'Еще не проверен'}${a?.note ? "\nПояснение: "+a.note : ""}${a?.correction ? "\nВариант исправления: "+a.correction : ""}\nЭталон: ${t.best}\nЕстественные варианты: ${E.preferred(t).join(' / ')}`;
-  }
-  function dialogueText(index, d = current(), source = session) {
-    const header = `Everyday · ${d.level} · ${d.topicLabel} · ${d.title}\nКонтекст: ${d.context}\nТон: ${d.tone}\n`;
-    if (Number.isInteger(index)) return header + '\n' + fragment(index,d,source);
-    const limit = source === session ? Math.min(source.index + 1, d.turns.length) : source.answers.length;
-    return header + '\n' + d.turns.slice(0,limit).map((_,i) => fragment(i,d,source)).join('\n\n') + (source.index === d.turns.length ? `\n\n${d.speaker}: ${d.ending.en}\nПеревод: ${d.ending.ru}` : '');
-  }
-  async function copy(text) {
-    try {
-      if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
-      await navigator.clipboard.writeText(text); toast('Скопировано. Можно вставить в чат.');
-    } catch (_) {
-      $('copy-text').value = text;
-      $('copy-dialog').showModal();
-      $('copy-text').focus(); $('copy-text').select();
-    }
-  }
-  function renderJournal() {
-    $('journal-content').innerHTML = journal.length ? [...journal].reverse().map(item => `<article class="journal-entry"><p class="muted">${escape(item.title)} · ${escape(item.level)} · ${escape(new Date(item.at).toLocaleString('ru-RU'))}</p><p lang="en">${escape(item.partner)}</p><p>${escape(item.task)}</p><blockquote lang="en">${escape(item.answer)}</blockquote><p>Эталон: <span lang="en">${escape(item.best)}</span></p></article>`).join('') : '<p class="empty-state">Пока здесь пусто. Нераспознанные ответы появятся после проверки.</p>';
-    $('export-journal').disabled = !journal.length;
-    $('clear-journal').disabled = !journal.length;
-    $('clear-confirm').hidden = true;
-  }
-  function exportJournal() {
-    const text = `Everyday — нераспознанные ответы\nЭто не список ошибок. Требуется разбор правильности и естественности.\n\n` + journal.map(item => `${item.level} · ${item.title}\nКонтекст: ${item.context}\nСобеседник: ${item.partner}\nЗадание: ${item.task}\nМой ответ: ${item.answer}\nЭталон: ${item.best}\nДата: ${item.at}`).join('\n\n---\n\n');
-    const url = URL.createObjectURL(new Blob([text], {type:'text/plain;charset=utf-8'}));
-    const link = document.createElement('a');
-    link.href = url; link.download = `everyday-answers-${new Date().toISOString().slice(0,10)}.txt`;
-    document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }
-  app.addEventListener('click', event => {
-    const button = event.target.closest('button');
-    if (!button) return;
-    if (button.dataset.pilot) {const d=dialogues.find(d=>d.id===button.dataset.pilot&&d.checking==='construction');if(d){settings.level=d.level;settings.topic=d.topic;selectedId=d.id;begin();}return;}
-    if (button.dataset.historyView) { const entry = history.find(item => item.runId === button.dataset.historyView); if (entry) renderHistoryEntry(entry); return; }
-    if (button.dataset.historyCopy) { const entry = history.find(item => item.runId === button.dataset.historyCopy); if (entry) copy(dialogueText(undefined,entry.dialogue,entry)); return; }
-    if (button.dataset.level) { settings.level = button.dataset.level; selectedId = ''; save(); renderHome(); document.querySelector(`[data-level="${settings.level}"]`).focus(); return; }
-    if (button.hasAttribute('data-copy-turn')) { copy(dialogueText(Number(button.dataset.copyTurn))); return; }
-    switch (button.dataset.action) {
-      case 'start': begin(); break;
-      case 'update': {
-        if (!['http:','https:'].includes(window.location.protocol)) { toast('Для обновления оффлайн файла скачай новый index.html с сайта проекта.'); break; }
-        if (navigator.onLine === false) { toast('Для загрузки новой версии нужен интернет.'); break; }
-        save(); const url = new URL(window.location.href); url.searchParams.set('update',String(Date.now())); window.location.assign(url.href); break;
-      }
-      case 'resume': screen = 'practice'; renderPractice(); window.scrollTo(0,0); break;
-      case 'discard': session = null; save(); renderHome(); break;
-      case 'home': renderHome(); window.scrollTo(0,0); break;
-      case 'history': renderHistory(); break;
-      case 'reveal': submit(true); break;
-      case 'retry': session.draft = session.answers[session.index].answer; session.answers.length = session.index; if (!session.answers.length) history = history.filter(entry => entry.runId !== session.runId); else rememberSession(); save(); renderPractice(); break;
-      case 'next': if (!session.answers[session.index]) break; session.index++; session.draft = ''; rememberSession(); save(); renderPractice(); (document.getElementById('active-turn') || document.getElementById('completion'))?.scrollIntoView({block:'start'}); break;
-      case 'copy-all': copy(dialogueText()); break;
-      case 'another': { const d = current(); settings.level = d.level; if (settings.topic !== 'random') settings.topic = d.topic; settings.length = d.length; begin(true); break; }
+  function detail(a){const notes=[];if(['error','acceptable'].includes(a.status)&&a.note)notes.push(a.note);if(a.orthographyNote)notes.push(a.orthographyNote);for(const d of a.diagnostics||[])if(d.note&&!notes.includes(d.note))notes.push(d.note);for(const n of a.grammarNotes||[])if(!notes.includes(n))notes.push(n);return notes.map(n=>`<p class="explanation">${esc(n)}</p>`).join('');}
+  function renderReview(){stop();const d=current(),t=d.turns[viewIndex],a=session.answers[viewIndex];if(!a)return renderWork();setPhase('review');page('review',`<section class="screen">${top(d.title,`${viewIndex+1}/${d.turns.length}`)}<div class="review-scroll"><section class="panel review-card ${a.status}"><h1 class="status ${a.status}">${statusNames[a.status]}</h1>${annotated(a.answer,a)}${detail(a)}<div><p class="reference-label">Эталон</p><p class="best" lang="en">${esc(t.best)}</p></div><button type="button" class="variants-button" data-action="variants" aria-expanded="${variantsOpen}">${variantsOpen?'Скрыть варианты':'Другие варианты'}</button>${variantsOpen?`<ul class="variants" lang="en">${E.preferred(t).map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}</section></div>${nav('review-back','Дальше')}</section>`);}
+  function remember(){const d=current();if(!d||!session.answers.length)return;const h=JSON.parse(JSON.stringify({runId:session.runId,mode:session.mode,index:session.index,startedAt:session.startedAt,updatedAt:new Date().toISOString(),answers:session.answers,dialogue:d}));history=[...history.filter(x=>x.runId!==h.runId),h].slice(-6);}
+  function submit(){const d=current();if(screen!=='work'||viewIndex!==session.index||session.answers[viewIndex]||session.mode==='speech'&&!view().task)return;const answer=$('answer').value.trim();if(!answer)return;const result=E.check(answer,d.turns[viewIndex]);if(result.status==='empty')return;const a={...result,answer,at:new Date().toISOString()};session.answers[viewIndex]=a;session.draft=answer;if(a.status==='unknown')journal.push({at:a.at,dialogueId:d.id,title:d.title,level:d.level,topic:d.topicLabel,mode:session.mode,context:d.context,partner:d.turns[viewIndex].en,partnerTranslation:d.turns[viewIndex].ru,stage:d.turns[viewIndex].stage||'',task:d.turns[viewIndex].task,answer,best:d.turns[viewIndex].best,turn:viewIndex+1});$('answer').blur();remember();save();variantsOpen=false;renderReview();}
+  function next(){stop();if(screen!=='review')return;const d=current();if(viewIndex<session.index){viewIndex++;return renderWork();}if(!session.answers[session.index])return;session.index++;session.draft='';viewIndex=session.index;if(session.index===d.turns.length&&!session.completedRecorded){completionCounts[session.mode][d.id]=P.count(completionCounts[session.mode][d.id])+1;session.completedRecorded=true;}remember();save();variantsOpen=false;session.index===d.turns.length?renderDone():renderWork();}
+  function renderDone(){stop();setPhase('done');const d=current(),count=k=>session.answers.filter(a=>a.status===k||(k==='unknown'&&a.status==='revealed')).length;page('done',`<section class="screen done"><h1>${esc(d.title)}</h1><div class="done-content"><div class="panel ending">${session.mode==='text'?`<p class="english" lang="en">${esc(d.ending.en)}</p>`:''}<div class="partner-controls">${listen(true)}<button type="button" class="toggle" data-action="ending-text">${session.mode==='speech'?'Текст':'Перевод'}</button></div><p id="ending-extra" class="translation" hidden>${esc(session.mode==='speech'?d.ending.en:d.ending.ru)}</p></div><div class="stats">${[['correct','Верно'],['acceptable','Понятно'],['error','Ошибка'],['unknown','Не определено']].map(([k,label])=>`<div class="stat ${k}"><strong>${count(k)}</strong>${label}</div>`).join('')}</div></div><div class="done-actions"><button type="button" data-action="copy-all">Скопировать диалог</button><button type="button" data-action="replay">Пройти заново</button><button type="button" class="primary" data-action="home">Выход</button></div></section>`);}
+  function renderHistory(tab='dialogues'){stop();const journalTab=tab==='journal';page(journalTab?'journal':'history',`<section class="screen">${top('История')}<div class="segments"><button type="button" data-action="history" aria-pressed="${!journalTab}">Диалоги · ${history.length}</button><button type="button" data-action="journal" aria-pressed="${journalTab}">Не определено · ${journal.length}</button></div><div class="list-scroll">${journalTab?journalHTML():history.length?[...history].reverse().map(h=>`<article class="panel history-card"><div class="meta"><span>${modeName(h.mode)}</span><span>${h.index}/${h.dialogue.turns.length}</span></div><h2>${esc(h.dialogue.title)}</h2><div class="actions"><button type="button" data-history-view="${esc(h.runId)}">Открыть</button><button type="button" data-history-copy="${esc(h.runId)}">Скопировать</button></div></article>`).join(''):'<p class="empty">Пусто</p>'}</div>${journalTab?`<button type="button" class="primary" data-action="copy-journal" ${journal.length?'':'disabled'}>Скопировать все</button>`:'<button type="button" data-action="home">Назад</button>'}</section>`);}
+  function journalHTML(){return journal.length?[...journal].reverse().map(j=>`<article class="panel journal-entry"><p class="meta">${esc(j.title)} · ${esc(j.level)} · ${modeName(j.mode)}</p><p lang="en">${esc(j.partner)}</p><p>${esc(j.task)}</p><blockquote lang="en">${esc(j.answer)}</blockquote><p class="best" lang="en">${esc(j.best)}</p></article>`).join(''):'<p class="empty">Пусто</p>';}
+  function renderHistoryEntry(h){const d=h.dialogue;page('history-entry',`<section class="screen">${top(d.title)}<div class="list-scroll"><p class="context">${esc(d.context)}</p>${h.answers.map((a,i)=>{const t=d.turns[i];return `<article class="panel history-exchange">${t.stage?`<p class="scene-note">${esc(t.stage)}</p>`:''}<p class="english" lang="en">${esc(t.en)}</p><p class="translation">${esc(t.ru)}</p><p>${esc(t.task)}</p><span class="status ${a.status}">${statusNames[a.status]}</span>${annotated(a.answer,a)}${detail(a)}<div><p class="reference-label">Эталон</p><p class="best" lang="en">${esc(t.best)}</p></div></article>`;}).join('')}${h.index===d.turns.length?`<p class="english" lang="en">${esc(d.ending.en)}</p>`:''}</div>${nav('history','Скопировать','copy-entry')}</section>`);app.dataset.historyId=h.runId;}
+  function dialogueText(d,source){return `Everyday · ${d.level} · ${d.topicLabel} · ${modeName(source.mode)}\n${d.title}\nПредыстория: ${d.context}\n\n`+source.answers.map((a,i)=>{const t=d.turns[i];return `${t.stage?t.stage+'\n':''}${d.speaker}: ${t.en}\nПеревод: ${t.ru}\nЗадание: ${t.task}\nМой ответ: ${a.answer}\nОценка: ${statusNames[a.status]}${['error','acceptable'].includes(a.status)&&a.note?'\nПояснение: '+a.note:''}${a.correction?'\nИсправление: '+a.correction:''}\nЭталон: ${t.best}\nВарианты: ${E.preferred(t).join(' / ')}`;}).join('\n\n')+(source.index===d.turns.length?`\n\n${d.speaker}: ${d.ending.en}\nПеревод: ${d.ending.ru}`:'');}
+  function journalText(){return journal.map(j=>`${j.level} · ${j.title} · ${modeName(j.mode)}\n${j.context||''}\n${j.stage||''}\nСобеседник: ${j.partner}\nПеревод: ${j.partnerTranslation||''}\nЗадание: ${j.task}\nМой ответ: ${j.answer}\nЭталон: ${j.best}\nДата: ${j.at||''}`).join('\n\n---\n\n');}
+  async function copy(text){try{if(!navigator.clipboard?.writeText)throw Error();await navigator.clipboard.writeText(text);toast('Скопировано');}catch(_){$('copy-text').value=text;$('copy-dialog').showModal();$('copy-text').focus();$('copy-text').select();}}
+  app.addEventListener('click',event=>{
+    const b=event.target.closest('button');if(!b||b.disabled)return;
+    if(b.dataset.theme){settings.theme=b.dataset.theme;applyTheme();save();renderHome();return;}
+    if(b.dataset.level&&availableLevels.includes(b.dataset.level)){settings.level=b.dataset.level;settings.topic='random';save();renderHome();return;}
+    if(b.dataset.mode){settings.mode=b.dataset.mode;save();renderHome();return;}
+    if(b.dataset.speed){settings.speed=Number(b.dataset.speed);save();renderWork();return;}
+    if(b.dataset.historyView){const h=history.find(x=>x.runId===b.dataset.historyView);if(h)renderHistoryEntry(h);return;}
+    if(b.dataset.historyCopy){const h=history.find(x=>x.runId===b.dataset.historyCopy);if(h)copy(dialogueText(h.dialogue,h));return;}
+    switch(b.dataset.action){
+      case 'home':home();break;
+      case 'start':begin();break;
+      case 'resume':viewIndex=Math.min(session.viewIndex??session.index,session.index);variantsOpen=false;if(session.phase==='intro')renderIntro();else if(session.phase==='review')renderReview();else if(session.phase==='done')renderDone();else renderWork();break;
+      case 'intro-next':viewIndex=0;renderWork();break;
+      case 'back':if(viewIndex===0)renderIntro();else{viewIndex--;variantsOpen=false;renderReview();}break;
+      case 'review-back':renderWork();break;
+      case 'show-review':variantsOpen=false;renderReview();break;
+      case 'next':next();break;
+      case 'show-task':view().task=true;save();renderWork();break;
+      case 'toggle-text':view().text=!view().text;if(!view().text)view().translation=false;save();renderWork();break;
+      case 'translation':view().translation=!view().translation;save();renderWork();break;
+      case 'variants':variantsOpen=!variantsOpen;renderReview();break;
+      case 'listen':S.play(current().turns[viewIndex].en,settings.speed,toast);break;
+      case 'listen-ending':S.play(current().ending.en,settings.speed,toast);break;
+      case 'ending-text':$('ending-extra').hidden=!$('ending-extra').hidden;break;
+      case 'replay':{const d=current();settings.mode=session.mode;settings.level=d.level;begin(d.id);break;}
+      case 'copy-all':copy(dialogueText(current(),session));break;
+      case 'history':renderHistory();break;
+      case 'journal':renderHistory('journal');break;
+      case 'copy-journal':copy(journalText());break;
+      case 'copy-entry':{const h=history.find(x=>x.runId===app.dataset.historyId);if(h)copy(dialogueText(h.dialogue,h));break;}
     }
   });
-  app.addEventListener('change', event => {
-    if (event.target.id === 'topic') { settings.topic = event.target.value; selectedId = ''; save(); renderHome(); $('topic').focus(); }
-    if (event.target.id === 'dialogue-choice') selectedId = event.target.value;
-  });
-  app.addEventListener('input', event => { if (event.target.id === 'answer' && session) { session.draft = event.target.value; save(); } });
-  app.addEventListener('submit', event => { if (event.target.id === 'answer-form') { event.preventDefault(); submit(); } });
-  app.addEventListener('keydown', event => { if (event.target.id === 'answer' && event.key === 'Enter' && !event.shiftKey && !event.isComposing && !event.target.readOnly) { event.preventDefault(); submit(); } });
-  $('home-link').addEventListener('click', event => { event.preventDefault(); renderHome(); window.scrollTo(0,0); });
-  $('journal-button').addEventListener('click', () => { renderJournal(); $('journal-dialog').showModal(); });
-  document.querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', () => $(button.dataset.close).close()));
-  $('export-journal').addEventListener('click', exportJournal);
-  $('clear-journal').addEventListener('click', () => { $('clear-confirm').hidden = false; });
-  $('cancel-clear').addEventListener('click', () => { $('clear-confirm').hidden = true; });
-  $('confirm-clear').addEventListener('click', () => { journal = []; save(); renderJournal(); toast('Журнал очищен.'); });
-  if (session) rememberSession();
-  save(); renderHome();
+  app.addEventListener('change',event=>{if(event.target.id==='topic'){const value=event.target.value;settings.topic=value==='random'||dialogues.some(d=>d.level===settings.level&&d.topic===value)?value:'random';save();}});
+  app.addEventListener('input',event=>{if(event.target.id==='answer'&&session&&screen==='work'&&!session.answers[viewIndex]){session.draft=event.target.value;save();const b=$('check-answer');if(b)b.disabled=!session.draft.trim();}});
+  app.addEventListener('submit',event=>{if(event.target.id==='answer-form'){event.preventDefault();submit();}});
+  app.addEventListener('keydown',event=>{if(event.target.id==='answer'&&event.key==='Enter'&&!event.shiftKey&&!event.isComposing&&!event.target.readOnly){event.preventDefault();submit();}});
+  $('home-link').addEventListener('click',event=>{event.preventDefault();home();});$('close-copy').addEventListener('click',()=>$('copy-dialog').close());
+  let baseHeight=window.innerHeight||844;
+  function viewport(){const vv=window.visualViewport,focused=document.activeElement?.id==='answer',height=vv?.height||window.innerHeight||baseHeight;const keyboard=focused&&baseHeight-height>120;if(!keyboard)baseHeight=window.innerHeight||height;document.documentElement.style.setProperty('--app-height',baseHeight+'px');document.documentElement.style.setProperty('--keyboard-gap',keyboard?Math.max(0,baseHeight-height)+'px':'0px');document.body.classList.toggle('keyboard-open',keyboard);}
+  window.addEventListener?.('resize',viewport);window.visualViewport?.addEventListener('resize',viewport);app.addEventListener('focusin',viewport);app.addEventListener('focusout',()=>setTimeout(viewport,100));window.addEventListener?.('pagehide',stop);window.addEventListener?.('beforeunload',stop);
+  applyTheme();viewport();save();renderHome();
 })();

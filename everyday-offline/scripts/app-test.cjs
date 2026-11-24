@@ -1,75 +1,60 @@
-// Application-state unit tests. Minimal fake DOM, not a browser or visual QA.
-const fs = require('node:fs');
-const path = require('node:path');
-const vm = require('node:vm');
-const assert = require('node:assert/strict');
-const KEY = 'everyday-offline-v1';
-let checks = 0;
-function ok(value) { assert.ok(value); checks++; }
-function equal(value, expected) { assert.equal(value, expected); checks++; }
-function setup(initial, blocked = false) {
-  const elements = new Map();
-  const store = new Map(initial ? [[KEY,initial]] : []);
-  function el(id) {
-    if (!elements.has(id)) elements.set(id, {
-      id, value:'', innerHTML:'', textContent:'', hidden:false, handlers:{},
-      addEventListener(name,fn) { this.handlers[name] = fn; }, focus(){}, scrollIntoView(){}, select(){},
-      showModal(){this.open = true;}, close(){this.open = false;}
-    });
-    return elements.get(id);
-  }
-  const context = vm.createContext({
-    window:{scrollTo(){},location:{protocol:'https:',href:'https://dmshad.github.io/english/',assign(url){this.href=url;}}}, document:{getElementById:el, querySelectorAll:()=>[], querySelector:()=>el('query'), body:{append(){}}},
-    localStorage:{getItem(key){if (blocked) throw Error('blocked'); return store.get(key) || null;},setItem(key,value){if(blocked)throw Error('blocked');store.set(key,value);}},
-    navigator:{onLine:true}, URL, setTimeout:()=>1, clearTimeout(){}, console
-  });
-  for (const file of ['engine.js','content.js','content-stage1.js','content-ten.js','content-answers.js','structured.js','content-pilot.js','content-friend.js','content-library.js','content-intros.js','content-batch-a.js','content-batch-b.js','app.js']) vm.runInContext(fs.readFileSync(path.join(__dirname,'..',file),'utf8'),context);
-  const click = (data) => el('app').handlers.click({target:{closest:()=>({dataset:data,hasAttribute:name=>name==='data-copy-turn' && 'copyTurn' in data})}});
-  const change = (id,value) => el('app').handlers.change({target:{id,value}});
-  const answer = text => {el('answer').value = text; el('app').handlers.input({target:{id:'answer',value:text}}); el('app').handlers.submit({target:{id:'answer-form'},preventDefault(){}});};
-  return {el,click,change,answer,store,state:()=>JSON.parse(store.get(KEY)),html:()=>el('app').innerHTML,all:context.window.DIALOGUES.filter(d=>d.checking==='construction'),window:context.window,navigator:context.navigator};
+// State/UI contracts. Real browser verification is scripts/browser-test.cjs.
+const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),assert=require('node:assert/strict');
+const KEY='everyday-offline-v1';let checks=0;const ok=(v,m)=>{assert.ok(v,m);checks++;},eq=(a,b,m)=>{assert.equal(a,b,m);checks++;};
+function setup(initial,blocked=false){
+  const elements=new Map(),store=new Map(initial?[[KEY,initial]]:[]),plays=[],vars={};
+  function el(id){if(!elements.has(id))elements.set(id,{id,value:'',innerHTML:'',textContent:'',hidden:false,dataset:{},disabled:false,handlers:{},addEventListener(n,f){this.handlers[n]=f;},focus(){},blur(){},select(){},showModal(){this.open=true;},close(){this.open=false;},setAttribute(){}});return elements.get(id);}
+  const synth={getVoices:()=>[{name:'Local US',lang:'en-US',localService:true}],cancel(){},speak(u){plays.push(u);},addEventListener(){}};
+  const window={innerHeight:844,scrollTo(){},addEventListener(){},speechSynthesis:synth,SpeechSynthesisUtterance:class{constructor(text){this.text=text;}}};
+  const document={getElementById:el,querySelector:()=>el('meta'),activeElement:null,documentElement:{dataset:{},style:{setProperty(k,v){vars[k]=v;}}},body:{classList:{toggle(){}}}};
+  const context=vm.createContext({window,document,localStorage:{getItem(k){if(blocked)throw Error();return store.get(k)||null;},setItem(k,v){if(blocked)throw Error();store.set(k,v);}},navigator:{},console,setTimeout:()=>1,clearTimeout(){}});
+  for(const f of ['engine.js','content.js','content-stage1.js','content-ten.js','content-answers.js','structured.js','content-pilot.js','content-friend.js','content-library.js','content-intros.js','content-batch-a.js','content-batch-b.js','progress.js','speech.js','app.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'..',f),'utf8'),context);
+  const click=data=>el('app').handlers.click({target:{closest:()=>({dataset:data,disabled:false})}});
+  const change=(id,value)=>el('app').handlers.change({target:{id,value}});
+  const type=text=>{el('answer').value=text;el('app').handlers.input({target:{id:'answer',value:text}});};
+  const answer=text=>{type(text);el('app').handlers.submit({target:{id:'answer-form'},preventDefault(){}});};
+  const all=window.DIALOGUES.filter(d=>d.checking==='construction');
+  const start=(d,mode='text')=>{click({action:'home'});click({mode});change('topic',d.topic);click({action:'start'});};
+  const finish=d=>{for(const t of d.turns){if(state().session.mode==='speech')click({action:'show-task'});answer(t.best);click({action:'next'});}};
+  const state=()=>JSON.parse(store.get(KEY));
+  return {el,store,state,click,change,type,answer,all,start,finish,plays,window,document,html:()=>el('app').innerHTML};
 }
-
-const ui=setup();equal(ui.all.length,8);ok(!ui.html().includes('Кафе</option>'));
-ok(!ui.html().includes('по прежней базе'));
-for(const d of ui.all){const run=setup();run.click({pilot:d.id});equal(run.state().session.id,d.id);
-for(const t of d.turns){run.answer(t.best);run.click({action:'next'});}equal(run.state().session.index,10);ok(run.html().includes('Диалог пройден'));run.click({action:'copy-all'});ok(run.el('copy-text').value.includes(d.ending.en));}
-const error=setup();error.click({pilot:'pilot-library'});error.answer('I need a English textbook.');equal(error.state().session.answers[0].status,'error');ok(error.html().includes('word-error'));error.click({action:'retry'});error.answer('Could I borrow an English textbook?');equal(error.state().session.answers[0].status,'correct');
-const restored=setup(error.store.get(KEY));restored.click({action:'resume'});equal(restored.state().session.answers[0].status,'correct');
-const arch=setup(JSON.stringify({progressRevision:6,completedIds:ui.all.map(d=>d.id)}));
-for(let i=0;i<7;i++){arch.click({action:'home'});arch.click({pilot:'pilot-library'});for(const t of arch.all[1].turns){arch.answer(t.best);arch.click({action:'next'});}}
-equal(arch.state().history.length,6);equal(new Set(arch.state().history.map(h=>h.runId)).size,6);
-const before=JSON.stringify(arch.state().session),latest=arch.state().history.at(-1);arch.click({historyView:latest.runId});arch.click({historyCopy:latest.runId});equal(JSON.stringify(arch.state().session),before);ok(arch.el('copy-text').value.includes(latest.answers[0].answer));
-const migration=setup(JSON.stringify({progressRevision:4,completedIds:['pilot-friend-evening','pilot-library'],journal:[{answer:'old',task:'task'}]}));ok(migration.state().completedIds.includes('pilot-friend-evening'));ok(!migration.state().completedIds.includes('pilot-library'));equal(migration.state().journal.length,1);
-const old=setup(JSON.stringify({session:{id:'coffee-to-go',contentRevision:5,index:0,answers:[]}}));equal(old.state().session,null);
-const unknown=setup();unknown.click({pilot:'pilot-library'});unknown.answer('Can a flying whale bring a book?');equal(unknown.state().session.answers[0].status,'unknown');equal(unknown.state().journal.length,1);
-const injection=setup();injection.click({pilot:'pilot-library'});injection.answer('<img src=x onerror=alert(1)>');ok(!injection.html().includes('<img src=x'));
-const update=setup();update.click({action:'update'});ok(update.window.location.href.includes('update='));
-const file=setup();file.window.location.protocol='file:';file.click({action:'update'});equal(file.window.location.href,'https://dmshad.github.io/english/');
-const noStorage=setup(null,true);ok(noStorage.html().includes('Хранилище браузера недоступно'));noStorage.click({pilot:'pilot-library'});noStorage.click({action:'reveal'});noStorage.click({action:'next'});ok(noStorage.html().includes('2 из 10'));
-// General application behavior remains covered after retiring the old content.
-const emptyLevel=setup();emptyLevel.click({level:'B2'});ok(emptyLevel.html().includes('data-action="start" disabled'));
-const draft=setup();draft.click({pilot:'pilot-library'});
-ok(draft.html().includes('<details><summary>Показать перевод</summary>'));draft.answer('');equal(draft.state().session.answers.length,0);
-draft.el('answer').value='My draft';draft.el('app').handlers.input({target:{id:'answer',value:'My draft'}});
-const resumeDraft=setup(draft.store.get(KEY));resumeDraft.click({action:'resume'});ok(resumeDraft.html().includes('>My draft</textarea>'));
-const journal=setup();journal.click({pilot:'pilot-library'});journal.answer('Unrecognised answer');journal.click({action:'retry'});journal.answer(journal.all[1].turns[0].best);
-equal(journal.state().journal.length,1);journal.click({action:'home'});journal.el('journal-button').handlers.click();ok(journal.el('journal-dialog').open);
-journal.el('clear-journal').handlers.click();equal(journal.el('clear-confirm').hidden,false);journal.el('confirm-clear').handlers.click();equal(journal.state().journal.length,0);
-const latestRun=arch.state().history.at(-1);arch.all[1].turns[0].best='NEW REFERENCE MUST NOT APPEAR';arch.click({historyView:latestRun.runId});ok(!arch.html().includes('NEW REFERENCE MUST NOT APPEAR'));
-const loaded=setup(arch.store.get(KEY));equal(loaded.state().history.length,6);equal(loaded.state().completedIds.length,8);
-const unseen=setup(JSON.stringify({progressRevision:6,completedIds:ui.all.filter(d=>d.id!=='pilot-library').map(d=>d.id)}));unseen.change('dialogue-choice','pilot-friend-evening');unseen.click({action:'start'});equal(unseen.state().session.id,'pilot-library');
-unseen.answer(unseen.all[1].turns[0].best);ok(!unseen.state().completedIds.includes('pilot-library'));equal(unseen.state().history.length,1);
-const repeat=setup(JSON.stringify({progressRevision:6,completedIds:ui.all.map(d=>d.id)}));repeat.change('topic','visiting');repeat.change('dialogue-choice','pilot-friend-evening');repeat.click({action:'start'});equal(repeat.state().session.id,'pilot-friend-evening');
-const oldSeen=setup(JSON.stringify({seen:{'A1:random:long':ui.all.map(d=>d.id)}}));equal(oldSeen.state().completedIds.length,0);
-const incompatible=setup(JSON.stringify({progressRevision:4,session:{id:'pilot-library',contentRevision:4,index:3,answers:[]},journal:[{answer:'retained',task:'old'}],history:arch.state().history}));equal(incompatible.state().session,null);equal(incompatible.state().history.length,6);equal(incompatible.state().journal.length,1);
-const colors=setup();colors.click({pilot:'pilot-library'});colors.answer('Can I have a English textbook?');ok(colors.html().includes('word-error'));ok(colors.html().includes('word-correct'));colors.click({action:'home'});colors.click({historyView:colors.state().history.at(-1).runId});ok(colors.html().includes('word-error'));
-const cap=setup();cap.click({pilot:'pilot-library'});cap.answer(cap.all[1].turns[0].best);for(const match of cap.html().matchAll(/<details class="variants">([\s\S]*?)<\/details>/g))ok((match[1].match(/<li>/g)||[]).length<=10);
-const disconnected=setup();disconnected.navigator.onLine=false;disconnected.click({action:'update'});equal(disconnected.window.location.href,'https://dmshad.github.io/english/');
-const corrupt=setup('{bad-json');ok(corrupt.html().includes('Твой следующий разговор'));
-
-
-const fromV08=setup(JSON.stringify({progressRevision:5,completedIds:['pilot-friend-evening','pilot-library'],session:{id:'pilot-library',contentRevision:5,index:7,answers:[]},journal:[{answer:'kept',task:'kept'}]}));
-equal(fromV08.state().session,null);ok(fromV08.state().completedIds.includes('pilot-friend-evening'));ok(!fromV08.state().completedIds.includes('pilot-library'));equal(fromV08.state().journal.length,1);
-
-console.log(checks+' application-state checks passed (mock DOM; visual browser check still required).');
+const ui=setup();eq(ui.all.length,8);ok(!ui.html().includes('Больше уверенности'));ok(!ui.html().includes('Что распознано'));ok(ui.html().includes('data-level="B2" aria-pressed="false" disabled'));ui.click({level:'B2'});eq(ui.state().settings.level,'A1');
+ui.click({theme:'dark'});eq(ui.document.documentElement.dataset.theme,'dark');eq(setup(ui.store.get(KEY)).state().settings.theme,'dark');
+const d=ui.all.find(d=>d.id==='batch-shoes');ui.start(d);ok(ui.html().includes(d.context));ok(!ui.html().includes(d.turns[0].en));eq(ui.state().session.phase,'intro');eq(ui.state().completionCounts.text[d.id]||0,0);
+ui.click({action:'intro-next'});ok(ui.html().includes(d.turns[0].en));ok(ui.html().includes(d.turns[0].task));ok(!ui.html().includes(d.turns[0].ru));ui.click({action:'translation'});ok(ui.html().includes(d.turns[0].ru));
+ui.answer('');eq(ui.state().session.answers.length,0);
+ui.answer(d.turns[0].best);eq(ui.state().session.answers[0].status,'correct');eq(ui.state().session.phase,'review');ok(!ui.html().includes('Смысл, конструкция'));ok(!ui.html().includes('Зеленое — распознано'));
+ui.click({action:'variants'});ok(ui.html().includes('class="variants"'));ok((ui.html().match(/<li>/g)||[]).length<=10);
+ui.click({action:'next'});ui.type('A draft');ui.click({action:'back'});eq(ui.state().session.viewIndex,0);eq(ui.state().session.phase,'review');ui.click({action:'review-back'});ok(ui.html().includes('readonly'));ui.click({action:'back'});eq(ui.state().session.phase,'intro');ui.click({action:'intro-next'});ui.click({action:'show-review'});ui.click({action:'next'});ok(ui.html().includes('A draft'));eq(ui.state().session.index,1);eq(ui.state().session.answers.length,1);
+const restored=setup(ui.store.get(KEY));restored.click({action:'resume'});ok(restored.html().includes('A draft'));
+for(const t of d.turns.slice(1)){restored.answer(t.best);restored.click({action:'next'});}eq(restored.state().completionCounts.text[d.id],1);eq(restored.state().session.phase,'done');restored.click({action:'next'});eq(restored.state().completionCounts.text[d.id],1);
+restored.click({action:'copy-all'});ok(restored.el('copy-text').value.includes(d.ending.en));ok(restored.el('copy-dialog').open);
+restored.click({action:'replay'});eq(restored.state().session.phase,'intro');restored.click({action:'intro-next'});restored.finish(d);eq(restored.state().completionCounts.text[d.id],2);eq(new Set(restored.state().history.map(h=>h.runId)).size,2);
+// Speech starts with both texts absent and remains a separately counted mode.
+const audio=setup(restored.store.get(KEY));audio.start(d,'speech');audio.click({action:'intro-next'});ok(!audio.html().includes(d.turns[0].en));ok(!audio.html().includes(d.turns[0].task));ok(audio.html().includes('data-action="show-task"'));audio.answer(d.turns[0].best);eq(audio.state().session.answers.length,0);
+audio.click({action:'listen'});audio.click({action:'listen'});eq(audio.plays.length,2);eq(audio.plays[0].text,d.turns[0].en);eq(audio.plays[0].rate,1);
+audio.click({speed:'1'});audio.click({action:'listen'});eq(audio.plays.at(-1).rate,.6);eq((audio.html().match(/data-speed=/g)||[]).length,5);
+audio.click({action:'toggle-text'});ok(audio.html().includes(d.turns[0].en));ok(!audio.html().includes(d.turns[0].task));audio.click({action:'translation'});ok(audio.html().includes(d.turns[0].ru));audio.click({action:'toggle-text'});ok(!audio.html().includes(d.turns[0].en));ok(!audio.html().includes(d.turns[0].ru));audio.click({action:'show-task'});ok(audio.html().includes(d.turns[0].task));audio.finish(d);eq(audio.state().completionCounts.speech[d.id],1);eq(audio.state().completionCounts.text[d.id],2);eq(audio.state().session.mode,'speech');
+// Minimal-round selection, not merely a lifetime completed flag.
+const P=audio.window.OfflineProgress,counts={text:{a:2,b:1,c:1},speech:{}};
+eq(P.eligible([{id:'a'},{id:'b'},{id:'c'}],counts,'text').map(d=>d.id).join(','),'b,c');eq(P.eligible([{id:'a'},{id:'b'}],counts,'speech').length,2);
+const candidate=ui.all[2],seed={version:4,progressRevision:6,completionCounts:{text:Object.fromEntries(ui.all.map(x=>[x.id,x.id===candidate.id?1:2])),speech:{}},settings:{mode:'text'}};
+const round=setup(JSON.stringify(seed));round.click({action:'start'});eq(round.state().session.id,candidate.id);
+// Migration preserves old snapshots and marks old completions only in text.
+const migrated=setup(JSON.stringify({progressRevision:6,completedIds:[d.id],history:audio.state().history,journal:[{answer:'old unknown',task:'old task'}]}));eq(migrated.state().completionCounts.text[d.id],1);eq(migrated.state().completionCounts.speech[d.id]||0,0);eq(migrated.state().history.length,3);eq(migrated.state().journal.length,1);
+const reset=setup(JSON.stringify({progressRevision:5,completedIds:['pilot-library','pilot-friend-evening'],session:{id:'pilot-library',contentRevision:5,index:0,answers:[]},journal:[{answer:'keep',task:'keep'}]}));eq(reset.state().session,null);eq(reset.state().completionCounts.text['pilot-library']||0,0);eq(reset.state().completionCounts.text['pilot-friend-evening'],1);eq(reset.state().journal.length,1);
+// All eight active dialogues pass through intro/work/review/result, and history evicts only snapshots.
+const runs=setup();for(const x of runs.all){runs.start(x);runs.click({action:'intro-next'});runs.finish(x);eq(runs.state().completionCounts.text[x.id],1);eq(runs.state().session.phase,'done');}
+eq(runs.state().history.length,6);eq(Object.keys(runs.state().completionCounts.text).length,8);
+const snapshot=runs.state().history[0];runs.all.find(x=>x.id===snapshot.dialogue.id).turns[0].best='UNSAVED_REFERENCE';runs.click({historyView:snapshot.runId});ok(!runs.html().includes('UNSAVED_REFERENCE'));runs.click({historyCopy:snapshot.runId});ok(runs.el('copy-text').value.includes(snapshot.answers[0].answer));
+// Unknowns survive six-record history eviction and can be copied with their context.
+const unknown=setup();for(let i=0;i<7;i++){unknown.start(d);unknown.click({action:'intro-next'});unknown.answer('An unusual unrecognized sentence '+i);}
+eq(unknown.state().history.length,6);eq(unknown.state().journal.length,7);unknown.click({action:'journal'});unknown.click({action:'copy-journal'});ok(unknown.el('copy-text').value.includes('An unusual unrecognized sentence 0'));ok(unknown.el('copy-text').value.includes(d.context));
+unknown.click({action:'home'});eq(unknown.state().settings.topic,'random');
+const error=setup();error.start(d);error.click({action:'intro-next'});error.answer('I need a comfortable shoes');eq(error.state().session.answers[0].status,'error');ok(error.html().includes('word-error'));ok(error.html().includes('Shoes'));
+const injection=setup();injection.start(d);injection.click({action:'intro-next'});injection.answer('<img src=x onerror=alert(1)>');ok(!injection.html().includes('<img src=x'));ok(injection.html().includes('&lt;'));
+const broken=setup('{bad');ok(broken.html().includes('Начать диалог'));const unavailable=setup(null,true);ok(unavailable.html().includes('Сохранение недоступно'));
+// Only local English voices are selected; rate choices never request a remote voice.
+const speech=setup();speech.window.speechSynthesis.getVoices=()=>[{lang:'en-US',localService:false}];let message='';eq(speech.window.OfflineSpeech.play('Hello',5,t=>message=t),false);ok(message);speech.window.speechSynthesis.getVoices=()=>[{lang:'en-GB',localService:true},{lang:'en-US',localService:true}];speech.window.OfflineSpeech.play('Hello',3);eq(speech.plays.at(-1).voice.lang,'en-US');eq(speech.plays.at(-1).rate,.8);
+console.log(`${checks} application-state checks passed (mock DOM; real-browser suite is separate).`);

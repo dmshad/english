@@ -2,30 +2,21 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-visual">
   <meta name="theme-color" content="#f5f7fb">
-  <title>Everyday — английский в диалогах</title>
+  <title>Everyday</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <header class="site-header wrap">
-    <a href="#" id="home-link" class="brand" aria-label="Everyday — на главную"><span class="brand-mark" aria-hidden="true">e.</span>everyday<span class="brand-sub">английский в диалогах</span></a>
-    <span class="offline-label">Оффлайн · v0.10</span>
+  <header class="site-header">
+    <a href="#" id="home-link" class="brand" aria-label="Everyday — на главную"><span class="brand-mark" aria-hidden="true">e.</span>everyday</a>
+    <span class="version">v0.11</span>
   </header>
-  <main class="wrap" id="app"></main>
-  <footer class="wrap footer"><span>В своем темпе. Своими словами.</span><button class="text-button" id="journal-button">Нераспознанные ответы <span id="journal-count">0</span></button></footer>
+  <main id="app"></main>
   <div id="toast" role="status" class="toast" hidden></div>
-  <dialog id="journal-dialog" aria-labelledby="journal-title">
-    <div class="dialog-head"><h2 id="journal-title">Нераспознанные ответы</h2><button class="secondary" data-close="journal-dialog">Закрыть</button></div>
-    <p>Это материал для разбора, а не список ошибок. Ответы хранятся только в этом браузере.</p>
-    <div id="journal-content"></div>
-    <div class="actions"><button class="primary" id="export-journal">Скачать журнал</button><button class="secondary" id="clear-journal">Очистить журнал</button></div>
-    <p id="clear-confirm" hidden>Удалить все записи? <button class="text-button" id="confirm-clear">Да, удалить</button> <button class="text-button" id="cancel-clear">Отмена</button></p>
-  </dialog>
   <dialog id="copy-dialog" aria-labelledby="copy-title">
-    <div class="dialog-head"><h2 id="copy-title">Текст для копирования</h2><button class="secondary" data-close="copy-dialog">Закрыть</button></div>
-    <p>Браузер не разрешил автоматическое копирование. Выдели текст и скопируй его вручную.</p>
-    <textarea id="copy-text" readonly rows="10" aria-label="Текст для копирования"></textarea>
+    <div class="dialog-head"><h2 id="copy-title">Копирование</h2><button type="button" id="close-copy" aria-label="Закрыть">×</button></div>
+    <textarea id="copy-text" readonly aria-label="Текст для копирования"></textarea>
   </dialog>
   <script src="engine.js"></script>
   <script src="content.js"></script>
@@ -39,6 +30,8 @@
   <script src="content-intros.js"></script>
   <script src="content-batch-a.js"></script>
   <script src="content-batch-b.js"></script>
+  <script src="progress.js"></script>
+  <script src="speech.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

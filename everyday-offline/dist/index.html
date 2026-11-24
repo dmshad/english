@@ -2,41 +2,29 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-visual">
   <meta name="theme-color" content="#f5f7fb">
-  <title>Everyday — английский в диалогах</title>
+  <title>Everyday</title>
   <style>
-:root{color-scheme:light;--bg:#f5f7fb;--ink:#192a37;--muted:#536370;--line:#dce3e9;--green:#166c58;--green-soft:#e7f2ed;--orange:#8e570b;--purple:#6753ba;--white:#fff;font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:20px}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);line-height:1.6}button,input,textarea,select{font:inherit}button,a,select,textarea{touch-action:manipulation}button{cursor:pointer;border:0}button:disabled{opacity:.5;cursor:default}button:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid #8c78df;outline-offset:4px}textarea:focus,select:focus{outline:3px solid #b6d5ca;outline-offset:2px}button,a{ -webkit-tap-highlight-color:transparent}h1,h2,h3,p{margin-top:0}h1{font-size:clamp(2.2rem,4.7vw,3.4rem);line-height:1.12;letter-spacing:-.055em;font-weight:650;margin-bottom:1.1rem}h2{font-size:1.5rem;letter-spacing:-.025em;line-height:1.25;margin-bottom:1rem}h3{font-size:1.05rem;line-height:1.4;margin-bottom:.5rem}p{margin-bottom:1rem}.wrap{width:min(1160px,calc(100% - 64px));margin-inline:auto}.site-header{display:flex;align-items:center;justify-content:space-between;padding:28px 0;border-bottom:1px solid var(--line);gap:1rem}.brand{display:flex;align-items:center;gap:12px;font-size:1.3rem;font-weight:750;color:var(--ink);text-decoration:none;letter-spacing:-.04em}.brand-mark{display:grid;place-items:center;width:44px;height:44px;border-radius:13px;background:var(--green);color:white;font-size:1.6rem;font-weight:600;line-height:1}.brand-sub{font-size:.8rem;letter-spacing:0;color:var(--muted);font-weight:400;border-left:1px solid #c9d2da;padding-left:14px;margin-left:5px}.offline-label{font-size:.8rem;color:var(--muted);white-space:nowrap}.hero{display:grid;grid-template-columns:1.15fr 1fr;gap:4rem;align-items:start;padding:65px 0 50px}.eyebrow{color:var(--green);font-size:.8rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:1rem}.hero-copy{padding-top:12px}.hero-copy>p{color:var(--muted);max-width:550px;font-size:1.05rem}.features{display:flex;gap:12px;flex-wrap:wrap;margin:1.6rem 0 2rem}.pill{display:inline-flex;align-items:center;border-radius:30px;background:#e9edf2;color:#465764;padding:5px 13px;font-size:.8rem}.sample{padding:1.4rem 1.5rem;border-left:3px solid #9cbeb0;background:#edf3f1;border-radius:0 16px 16px 0;max-width:470px}.sample p{font-size:1.25rem;margin:4px 0}.muted,.sample small{color:var(--muted)}small{font-size:.8rem}.sample small{display:block}.setup-card,.card{background:var(--white);border:1px solid var(--line);border-radius:22px;padding:1.6rem;box-shadow:0 5px 20px #20304004}.setup-card h2{margin-bottom:1.2rem}.field{margin-bottom:1.25rem}.field>label,.field>legend{display:block;font-size:.9rem;font-weight:600;margin-bottom:.55rem}fieldset{border:0;padding:0;margin:0;min-width:0}.levels{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}.choice{background:#f5f7fa;color:var(--ink);border:1px solid var(--line);padding:.55rem .2rem;border-radius:10px;font-size:.9rem}.choice[aria-pressed=true]{background:var(--green-soft);border-color:var(--green);color:var(--green);box-shadow:inset 0 0 0 1px var(--green);font-weight:650}.choice[data-level]:not([aria-pressed=true]){color:var(--muted)}select{appearance:none;width:100%;padding:.65rem 2.3rem .65rem .75rem;border:1px solid #c7d1da;border-radius:10px;background-color:white;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='none' stroke='%23536370' stroke-width='2'%3E%3Cpath d='m5 7 5 5 5-5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;color:var(--ink);font-size:.9rem}.lengths{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.lengths .choice{padding:.65rem .3rem}.lengths span{display:block;font-size:.8rem;font-weight:400;color:var(--muted)}.primary,.secondary,.quiet{display:inline-flex;justify-content:center;align-items:center;min-height:49px;padding:.6rem 1rem;border-radius:11px;font-weight:600;font-size:.9rem;line-height:1.4;text-decoration:none}.primary{background:var(--green);color:white}.primary:hover{background:#105a48}.secondary{background:white;border:1px solid #cad4dc;color:var(--ink)}.secondary:hover{background:#f0f4f5}.quiet{background:#edf2f0;color:var(--green)}.full{width:100%}.text-button{background:none;padding:3px 0;color:var(--green);font-size:.8rem;text-align:left;text-decoration:underline;text-underline-offset:4px}.setup-note{font-size:.8rem;color:var(--muted);margin:.8rem 0 0}.notice{background:#fff4dc;border:1px solid #e9d09b;border-radius:12px;padding:1rem;font-size:.9rem;margin-bottom:1rem}.resume{background:#eaf1ed;border:1px solid #cadfd4;padding:1.2rem;border-radius:16px;margin-bottom:1.5rem}.resume p{margin:0 0 .7rem}.resume .actions{gap:.6rem}.footer{display:flex;justify-content:space-between;align-items:center;gap:1rem;border-top:1px solid var(--line);padding:24px 0 30px;font-size:.8rem;color:var(--muted)}#journal-count{display:inline-block;background:#e4eae7;border-radius:15px;min-width:26px;text-align:center;margin-left:5px;color:#275d4b}.practice{max-width:850px;margin:0 auto;padding:34px 0 50px}.practice-top{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1.5rem}.progress-label{color:var(--muted);font-size:.8rem}.progress{height:5px;border-radius:10px;background:#e0e7e6;margin-bottom:1.7rem;overflow:hidden}.progress-fill{height:100%;background:var(--green)}.practice h1{font-size:2rem;letter-spacing:-.035em;margin-bottom:.7rem}.context{margin-bottom:1.7rem;color:var(--muted)}.meta{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1rem}.conversation{margin:1.5rem 0}.exchange{margin-bottom:1.8rem}.speaker{color:var(--muted);font-size:.8rem;font-weight:600;margin:0 0 .4rem}.partner{background:#eaf0f3;padding:1.1rem 1.4rem;border-radius:4px 18px 18px 18px;max-width:92%}.partner .english{font-size:1.25rem;font-weight:550;line-height:1.5;margin-bottom:.4rem}.partner details summary{font-size:.8rem;color:#465c68;cursor:pointer}.translation{font-size:.95rem;color:#465c68;margin:.45rem 0 0}.answer-history{margin:.8rem 0 0 auto;max-width:92%;border:1px solid #ccddd5;background:#f0f6f3;padding:1rem 1.3rem;border-radius:18px 4px 18px 18px}.answer-history p{margin:0 0 .5rem;overflow-wrap:anywhere}.answer-history .original{font-size:.85rem;color:var(--muted)}.answer-history .reference{font-size:.95rem}.answer-card{margin-top:1.4rem;padding:1.5rem;background:white;border:1px solid var(--line);border-radius:18px}.answer-card label{display:block;color:var(--muted);font-size:.8rem;margin-bottom:.45rem}.task{font-size:1.2rem;line-height:1.5;font-weight:550;margin-bottom:1rem}textarea{display:block;resize:vertical;width:100%;min-height:108px;padding:.85rem 1rem;border:1px solid #bccbd4;border-radius:12px;line-height:1.6;color:var(--ink);background:white;font-size:1.05rem}textarea::placeholder{color:#73818b}.actions{display:flex;gap:.65rem;align-items:center;flex-wrap:wrap;margin-top:1rem}.hint{font-size:.8rem;color:var(--muted);margin:8px 0 0}.feedback{margin-top:1.2rem;padding:1.15rem 1.25rem;border-radius:13px;border:1px solid #c3dfd1;background:#edf7f0}.feedback.acceptable{background:#fff5e5;border-color:#e7cfa5}.feedback.unknown{background:#f1eefb;border-color:#d7ceef}.status{display:inline-flex;font-size:.8rem;font-weight:650;color:var(--green);gap:6px}.status.acceptable{color:var(--orange)}.status.unknown{color:var(--purple)}.feedback h3{font-size:.8rem;color:var(--muted);margin:1rem 0 .25rem;font-weight:500}.feedback .best{font-size:1.25rem;font-weight:600;line-height:1.5;margin:0}.feedback .explanation{font-size:.9rem;margin:.5rem 0 0}.variants{margin-top:1rem}.variants summary{font-size:.9rem;cursor:pointer;color:var(--green);font-weight:550}.variants ul{padding-left:1.2rem;margin:.7rem 0}.variants li{margin-bottom:.55rem;font-size:1rem}.variants .variant-note{display:block;font-size:.85rem;color:var(--muted)}.variant-heading{margin:.8rem 0 0;font-size:.85rem;font-weight:600}.history-details{font-size:.9rem;margin-top:.5rem}.completion{text-align:center;padding:2rem 1.5rem;background:white;border:1px solid var(--line);border-radius:20px;margin-top:2rem}.completion .actions{justify-content:center}.completion h2{font-size:1.8rem}.completion p{color:var(--muted)}.stats{display:flex;gap:1.5rem;justify-content:center;flex-wrap:wrap;margin:1.5rem 0}.stat{font-size:.8rem;color:var(--muted)}.stat strong{display:block;font-size:1.6rem;color:var(--ink)}dialog{width:min(850px,calc(100% - 32px));max-height:85vh;overflow:auto;border:1px solid var(--line);border-radius:20px;padding:1.5rem;color:var(--ink);background:#fff}dialog::backdrop{background:#142c3e70;backdrop-filter:blur(3px)}.dialog-head{display:flex;align-items:start;justify-content:space-between;gap:1rem;margin-bottom:1rem}.dialog-head h2{margin:0}.journal-entry{padding:1rem 0;border-top:1px solid var(--line)}.journal-entry p{margin-bottom:.4rem;overflow-wrap:anywhere}.journal-entry .muted{font-size:.85rem}.journal-entry blockquote{margin:.5rem 0;padding-left:1rem;border-left:3px solid #b9abdf}.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ink);color:white;border-radius:12px;padding:.7rem 1.2rem;font-size:.9rem;max-width:calc(100% - 32px);z-index:20;box-shadow:0 5px 25px #0002}.empty-state{padding:1rem 0;color:var(--muted)}[hidden]{display:none!important}
-.scene-note{font-size:.9rem;color:var(--muted);text-align:center;padding:.7rem;margin:1.2rem 0;background:#edf0f5;border-radius:10px}.menu-tools{display:flex;gap:20px;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding-top:20px;margin-bottom:-25px}.history-card{margin:1.2rem 0}.history-card h2{margin-bottom:.5rem}
-@media(max-width:950px){.hero{gap:2rem;grid-template-columns:1fr 1fr}.brand-sub{display:none}.setup-card{padding:1.2rem}}
-@media(max-width:720px){.wrap{width:calc(100% - 32px)}.site-header{padding:20px 0}.hero{grid-template-columns:1fr;padding:32px 0;gap:1.5rem}.hero-copy{padding-top:0}.hero-copy>p{font-size:1rem}.sample{display:none}.features{margin:1rem 0}.setup-card{padding:1.2rem}h1{font-size:2.2rem}.footer{align-items:start;flex-direction:column;gap:.5rem}.offline-label{font-size:.8rem}.practice{padding-top:24px}.practice h1{font-size:1.7rem}.practice-top{align-items:start}.partner{max-width:100%;padding:1rem}.answer-card{padding:1rem}.answer-history{max-width:96%;padding:1rem}.actions .primary{flex-grow:1}.lengths .choice{font-size:.85rem}.completion{padding:1.3rem 1rem}.dialog-head{flex-wrap:wrap}.dialog-head h2{font-size:1.3rem}.context{font-size:.95rem}}
-@media(prefers-reduced-motion:no-preference){button{transition:background .15s ease,border-color .15s ease}.feedback{animation:appear .2s ease}@keyframes appear{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}}
-.pilot-offer{padding:1rem;background:#eef3fb;border:1px solid #cdd9eb;border-radius:13px;margin-bottom:1.2rem}.pilot-offer .actions{margin-top:.6rem}.feedback.error{background:#fff0ef;border-color:#e7afaa}.status.error{color:#a52b26}.diagnostic{margin:.65rem 0 0;font-size:.95rem;overflow-wrap:anywhere}.diagnostic span{font-weight:600}.parse-details{margin-top:.75rem;font-size:.9rem}.parse-details summary{cursor:pointer}.parse-details ul{padding-left:1.2rem}
-.feedback .explanation,.diagnostic,.parse-details{font-size:1rem}
-.annotated-answer{font-size:1.2rem;line-height:1.9;white-space:pre-wrap;overflow-wrap:anywhere;margin:1rem 0}.word-correct{color:#126048;background:#def0e5;border-radius:3px}.word-acceptable{color:#805000;background:#fff0ba;border-bottom:2px dotted #a06b00}.word-error{color:#9c201d;background:#ffdcd9;text-decoration:underline;text-decoration-style:wavy}.word-neutral{color:#536370;background:#e9edf2}.missing-word{font-size:.9em;font-weight:650}
+:root{color-scheme:light;--bg:#f5f7fb;--panel:#fff;--soft:#eaf0f4;--ink:#192a37;--muted:#536370;--line:#dce3e9;--accent:#166c58;--accent-soft:#e7f2ed;--green:#126048;--green-bg:#def0e5;--yellow:#805000;--yellow-bg:#fff0ba;--red:#9c201d;--red-bg:#ffdcd9;--gray:#536370;--gray-bg:#e9edf2;--app-height:100svh;font:20px/1.4 ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+:root[data-theme=dark]{color-scheme:dark;--bg:#111014;--panel:#1d1b22;--soft:#29252f;--ink:#f3eff8;--muted:#b4adbf;--line:#383140;--accent:#c0a6fa;--accent-soft:#36284d;--green:#a4e4bc;--green-bg:#203c30;--yellow:#f2d48e;--yellow-bg:#43371f;--red:#ffb0b1;--red-bg:#492b32;--gray:#c2bacd;--gray-bg:#302b38}
+*{box-sizing:border-box}html{background:var(--bg);scrollbar-gutter:stable}body{margin:0;background:var(--bg);color:var(--ink);-webkit-text-size-adjust:100%;padding-top:env(safe-area-inset-top)}button,input,textarea,select{font:inherit;color:inherit}button,a,select,textarea{-webkit-tap-highlight-color:transparent;touch-action:manipulation}button{min-height:44px;border:1px solid var(--line);background:var(--panel);border-radius:13px;padding:9px 14px;cursor:pointer;line-height:1.25}button:disabled{color:var(--muted);background:var(--soft);opacity:.45;cursor:default}button:focus-visible,a:focus-visible,summary:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px solid var(--accent);outline-offset:2px}button[aria-pressed=true]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:650}a{color:inherit}.site-header{height:64px;max-width:620px;margin:auto;display:flex;align-items:center;justify-content:space-between;padding:10px 18px;border-bottom:1px solid var(--line)}.brand{display:flex;align-items:center;gap:9px;font-size:25px;font-weight:750;letter-spacing:-.04em;text-decoration:none}.brand-mark{background:var(--accent);color:var(--bg);width:34px;height:34px;border-radius:11px;display:grid;place-items:center;font-size:28px}.version{font-size:16px;color:var(--muted)}#app{max-width:620px;margin:auto;padding:12px 14px calc(12px + env(safe-area-inset-bottom));height:calc(var(--app-height) - 64px - env(safe-area-inset-top));min-height:480px}h1,h2,h3,p,fieldset{margin:0}h1{font-size:28px;line-height:1.15;letter-spacing:-.035em}h2{font-size:24px;line-height:1.2}h3{font-size:20px}fieldset{border:0;padding:0;min-width:0}legend,label.field-label{display:block;font-size:16px;font-weight:600;margin-bottom:7px}select{width:100%;min-height:50px;border:1px solid var(--line);border-radius:13px;background:var(--panel);padding:10px 12px;font-size:20px}textarea{resize:none;width:100%;font-size:22px;line-height:1.5;background:var(--panel);border:1px solid var(--line);border-radius:15px;padding:14px;display:block}textarea:disabled{opacity:.6}button.primary{background:var(--accent);color:var(--bg);border-color:var(--accent);font-weight:650}.screen{height:100%;min-height:0;display:flex;flex-direction:column;gap:12px}.home{justify-content:center;gap:20px}.home .field{flex:0 0 auto}.theme-row{display:flex;align-items:center;justify-content:space-between;gap:12px}.theme-row>span{font-size:16px;color:var(--muted)}.segments{display:grid;grid-template-columns:1fr 1fr;gap:6px}.segments button{min-width:0}.theme-control button{font-size:18px;padding:8px 12px}.levels{display:grid;grid-template-columns:repeat(6,1fr);gap:5px}.levels button{padding:9px 2px;font-size:20px;min-width:0}.home-actions{display:grid;gap:10px}.home-actions .primary{min-height:54px}.topline{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:32px}.topline .counter{font-size:16px;color:var(--muted)}.exit{font-size:26px;padding:0;width:40px;min-height:36px;border:0;background:transparent}.screen-title{font-size:20px;line-height:1.25;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.intro{justify-content:space-between}.intro .intro-body{display:flex;flex-direction:column;gap:24px;padding:20px 8px;overflow:auto;flex:1}.context{font-size:22px;line-height:1.6}.nav{display:grid;grid-template-columns:minmax(90px,.8fr) minmax(0,1.7fr);gap:10px;flex:0 0 auto}.nav button{min-height:50px}.full{width:100%}.work-grid{display:grid;grid-template-rows:1.18fr .78fr 1fr;gap:10px;min-height:0;flex:1}.panel{background:var(--panel);border:1px solid var(--line);border-radius:18px;min-height:0;overflow:hidden}.partner-panel{display:flex;flex-direction:column;padding:12px;gap:7px}.partner-scroll{overflow:auto;min-height:0;flex:1;overscroll-behavior:contain;scrollbar-width:thin}.english{font-size:24px;line-height:1.4;overflow-wrap:anywhere}.translation{font-size:21px;color:var(--muted);margin-top:10px;line-height:1.45}.scene-note{font-size:16px;color:var(--muted);margin-bottom:8px;line-height:1.3}.partner-controls{display:flex;align-items:center;gap:7px;flex-wrap:wrap;flex-shrink:0}.partner-controls .toggle{font-size:16px;min-height:38px;padding:7px 10px}.listen{width:44px;height:44px;flex:0 0 44px;padding:7px;display:grid;place-items:center;border-radius:50%;background:var(--accent-soft);color:var(--accent);border-color:transparent}.listen svg{width:25px;height:25px}.audio-main{display:flex;align-items:center;justify-content:center;flex:1;gap:10px;min-height:48px}.audio-main>.listen{width:56px;height:56px;flex-basis:56px}.speeds{display:flex;gap:3px}.speeds button{font-size:16px;min-width:36px;min-height:40px;padding:6px 3px;border-radius:9px}.task-panel{display:flex;align-items:center;justify-content:center;padding:14px;overflow:auto}.task{font-size:22px;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere;width:100%;margin:auto 0}.input-panel{display:flex}.input-panel textarea{border:0;border-radius:17px;height:100%;min-height:0}.input-panel textarea:focus-visible{outline-offset:-3px}.read-only{background:var(--soft)}.review-scroll,.list-scroll{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:1px 2px 10px}.review-card{padding:16px;display:flex;flex-direction:column;gap:14px}.status{display:block;font-size:23px;font-weight:700;line-height:1.3}.status.correct{color:var(--green)}.status.acceptable{color:var(--yellow)}.status.error{color:var(--red)}.status.unknown,.status.revealed{color:var(--gray)}.review-card.correct{border-top:4px solid var(--green)}.review-card.acceptable{border-top:4px solid var(--yellow)}.review-card.error{border-top:4px solid var(--red)}.review-card.unknown{border-top:4px solid var(--gray)}.annotated-answer{font-size:23px;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere}.word-correct{color:var(--green);background:var(--green-bg);border-radius:3px}.word-acceptable{color:var(--yellow);background:var(--yellow-bg);border-bottom:2px dotted var(--yellow)}.word-error{color:var(--red);background:var(--red-bg);text-decoration:underline wavy}.word-neutral{color:var(--gray);background:var(--gray-bg)}.explanation{font-size:20px;line-height:1.5}.reference-label{font-size:16px;color:var(--muted);margin-bottom:5px}.best{font-size:24px;line-height:1.4;overflow-wrap:anywhere}.variants-button{font-size:20px;width:100%}.variants{padding-left:24px;font-size:21px;line-height:1.5;margin:0}.variants li{margin:8px 0}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}.stat{text-align:center;border-radius:15px;padding:16px 2px;border:1px solid var(--line);font-size:16px}.stat strong{font-size:32px;display:block}.stat.correct{background:var(--green-bg);color:var(--green)}.stat.acceptable{background:var(--yellow-bg);color:var(--yellow)}.stat.error{background:var(--red-bg);color:var(--red)}.stat.unknown{background:var(--gray-bg);color:var(--gray)}.done{justify-content:space-between}.done-content{display:flex;flex-direction:column;gap:20px;overflow:auto;min-height:0;flex:1}.done-actions{display:grid;gap:10px;flex:0 0 auto}.ending{padding:15px}.history-card{padding:14px;margin:0 0 10px;display:grid;gap:10px}.history-card .meta{font-size:16px;color:var(--muted);display:flex;justify-content:space-between;gap:10px}.history-card h2{font-size:22px}.history-card .actions{display:flex;gap:8px}.history-card .actions button{font-size:18px}.history-exchange{padding:14px;margin-bottom:12px;display:grid;gap:10px}.history-exchange .english,.history-exchange .best{font-size:22px}.history-exchange .translation{margin:0}.journal-entry{padding:14px;margin-bottom:10px;display:grid;gap:10px}.journal-entry .meta{font-size:16px;color:var(--muted)}.journal-entry blockquote{margin:0;font-size:22px;padding-left:10px;border-left:3px solid var(--accent);overflow-wrap:anywhere}.empty{color:var(--muted);padding:15px 0}.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom));max-width:calc(100% - 30px);background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:12px;font-size:18px;z-index:20}dialog{width:min(560px,calc(100% - 24px));max-height:85svh;overflow:auto;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:18px;padding:15px}dialog::backdrop{background:#0009}.dialog-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}.dialog-head button{font-size:26px;width:44px;padding:3px}#copy-text{height:50svh;font-size:20px}[hidden]{display:none!important}.keyboard-open{padding-bottom:calc(var(--keyboard-gap,0px) + 20px)}.keyboard-open #app{overflow:visible}.storage-error{color:var(--red);font-size:16px}.home .storage-error{margin-top:-12px}
+@media(min-width:700px){#app{max-height:920px}.site-header{padding-inline:20px}.home{padding:20px 36px}.work-grid{gap:12px}.partner-panel{padding:16px}.english{font-size:25px}}
+@media(max-height:730px){.home{gap:12px}.site-header{height:56px}#app{height:calc(var(--app-height) - 56px - env(safe-area-inset-top));padding-top:10px}.screen{gap:9px}.home .field-label,legend{margin-bottom:5px}.theme-control button{min-height:40px}.home-actions{gap:7px}.home .home-actions button{min-height:46px}.partner-panel{padding:9px;gap:5px}.context{font-size:22px}.speeds button{min-width:34px}.audio-main{gap:5px}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
 
 </style>
 </head>
 <body>
-  <header class="site-header wrap">
-    <a href="#" id="home-link" class="brand" aria-label="Everyday — на главную"><span class="brand-mark" aria-hidden="true">e.</span>everyday<span class="brand-sub">английский в диалогах</span></a>
-    <span class="offline-label">Оффлайн · v0.10</span>
+  <header class="site-header">
+    <a href="#" id="home-link" class="brand" aria-label="Everyday — на главную"><span class="brand-mark" aria-hidden="true">e.</span>everyday</a>
+    <span class="version">v0.11</span>
   </header>
-  <main class="wrap" id="app"></main>
-  <footer class="wrap footer"><span>В своем темпе. Своими словами.</span><button class="text-button" id="journal-button">Нераспознанные ответы <span id="journal-count">0</span></button></footer>
+  <main id="app"></main>
   <div id="toast" role="status" class="toast" hidden></div>
-  <dialog id="journal-dialog" aria-labelledby="journal-title">
-    <div class="dialog-head"><h2 id="journal-title">Нераспознанные ответы</h2><button class="secondary" data-close="journal-dialog">Закрыть</button></div>
-    <p>Это материал для разбора, а не список ошибок. Ответы хранятся только в этом браузере.</p>
-    <div id="journal-content"></div>
-    <div class="actions"><button class="primary" id="export-journal">Скачать журнал</button><button class="secondary" id="clear-journal">Очистить журнал</button></div>
-    <p id="clear-confirm" hidden>Удалить все записи? <button class="text-button" id="confirm-clear">Да, удалить</button> <button class="text-button" id="cancel-clear">Отмена</button></p>
-  </dialog>
   <dialog id="copy-dialog" aria-labelledby="copy-title">
-    <div class="dialog-head"><h2 id="copy-title">Текст для копирования</h2><button class="secondary" data-close="copy-dialog">Закрыть</button></div>
-    <p>Браузер не разрешил автоматическое копирование. Выдели текст и скопируй его вручную.</p>
-    <textarea id="copy-text" readonly rows="10" aria-label="Текст для копирования"></textarea>
+    <div class="dialog-head"><h2 id="copy-title">Копирование</h2><button type="button" id="close-copy" aria-label="Закрыть">×</button></div>
+    <textarea id="copy-text" readonly aria-label="Текст для копирования"></textarea>
   </dialog>
   <script>
 (function (root) {
@@ -2097,263 +2085,167 @@ root.DIALOGUES.find(d=>d.id==='batch-bus').turns[8].assessment.cases.error.push(
 
 </script>
   <script>
-(function () {
-  'use strict';
-  const $ = id => document.getElementById(id);
-  const app = $('app');
-  const E = window.OfflineEngine;
-  const dialogues = window.DIALOGUES.filter(d=>d.checking==='construction');
-  const KEY = 'everyday-offline-v1';
-  const labels = {short: '4 реплики · прежняя версия', medium: '6 реплик · прежняя версия', long: '10 реплик'};
-  const statuses = {correct: 'Верно', acceptable: 'Допустимо', error: 'Ошибка', unknown: 'Не распознано', revealed: 'Без ответа'};
-  const escape = text => String(text ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-  let persistent = true;
-  let saved = {};
-  try { saved = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; }
-  catch (_) { persistent = false; }
-  let settings = {level: 'A1', topic: 'random', ...saved.settings, length: 'long'};
-  if (!['A1','A2','B1','B2','C1','C2'].includes(settings.level)) settings.level = 'A1';
-  const topics = [...new Map(dialogues.map(d => [d.topic, d.topicLabel])).entries()];
-  if (settings.topic !== 'random' && !topics.some(([id]) => id === settings.topic)) settings.topic = 'random';
-  let journal = Array.isArray(saved.journal) ? saved.journal.filter(item => item && typeof item.answer === 'string' && typeof item.task === 'string') : [];
-  const completedIds = new Set(Array.isArray(saved.completedIds) ? saved.completedIds.filter(id => typeof id === 'string') : []);
-  for(const m of window.PROGRESS_MIGRATIONS||[{revision:window.CONTENT_REVISION,ids:window.REVISED_DIALOGUE_IDS}])if(Number(saved.progressRevision||0)<m.revision)for(const id of m.ids)completedIds.delete(id);
-  const validAnswer = a => a && Object.hasOwn(statuses, a.status) && typeof a.answer === 'string';
-  function validArchive(entry) {
-    const d = entry?.dialogue;
-    return typeof entry?.runId === 'string' && typeof entry.updatedAt === 'string' &&
-      Number.isInteger(entry.index) && Array.isArray(entry.answers) && entry.answers.length > 0 && entry.answers.every(validAnswer) &&
-      typeof d?.id === 'string' && typeof d.title === 'string' && typeof d.speaker === 'string' && typeof d.ending?.en === 'string' &&
-      Array.isArray(d.turns) && entry.index >= 0 && entry.index <= d.turns.length && entry.answers.length >= entry.index && entry.answers.length <= d.turns.length &&
-      d.turns.every(t => t && typeof t.en === 'string' && typeof t.ru === 'string' && typeof t.task === 'string' && typeof t.best === 'string' &&
-        Array.isArray(t.natural) && t.natural.every(v => typeof v === 'string') && Array.isArray(t.acceptable) && t.acceptable.every(v => v && typeof v.text === 'string'));
+/* Completion rounds are per dialogue and per practice mode, independent of history. */
+(function(root){
+  const modes=['text','speech'];
+  const count=n=>Number.isSafeInteger(n)&&n>=0?n:0;
+  function migrate(saved,revision,migrations){
+    const out={text:{},speech:{}};
+    if(saved.completionCounts&&typeof saved.completionCounts==='object'){
+      for(const mode of modes)for(const [id,n] of Object.entries(saved.completionCounts[mode]||{}))if(!['__proto__','constructor','prototype'].includes(id))out[mode][id]=count(n);
+    }else for(const id of Array.isArray(saved.completedIds)?saved.completedIds:[])if(typeof id==='string'&&!['__proto__','constructor','prototype'].includes(id))out.text[id]=1;
+    for(const m of migrations||[])if(Number(saved.progressRevision||0)<m.revision)for(const id of m.ids||[])for(const mode of modes)delete out[mode][id];
+    return out;
   }
-  let history = Array.isArray(saved.history) ? saved.history.filter(validArchive).slice(-6) : [];
-  let session = saved.session;
-  let contentUpdated = Boolean(session && session.contentRevision !== window.CONTENT_REVISION);
-  if (contentUpdated) session = null;
-  const storedDialogue = dialogues.find(d => d.id === session?.id);
-  if (!storedDialogue || !Number.isInteger(session?.index) || session.index < 0 || session.index > storedDialogue.turns.length ||
-      !Array.isArray(session.answers) || session.answers.length < session.index ||
-      session.answers.length > storedDialogue.turns.length || session.answers.some(a => !validAnswer(a))) session = null;
-  if (session) session.draft = typeof session.draft === 'string' ? session.draft : '';
-  let screen = 'home';
-  let selectedId = '';
-  let toastTimer;
+  function eligible(dialogues,counts,mode){
+    if(!dialogues.length)return [];
+    const min=Math.min(...dialogues.map(d=>count(counts[mode]?.[d.id])));
+    return dialogues.filter(d=>count(counts[mode]?.[d.id])===min);
+  }
+  root.OfflineProgress={migrate,eligible,count};
+})(typeof window!=='undefined'?window:globalThis);
 
-  function save() {
-    try { localStorage.setItem(KEY, JSON.stringify({version: 3, progressRevision: window.CONTENT_REVISION, settings, journal, completedIds: [...completedIds], history, session})); }
-    catch (_) { persistent = false; }
-    $('journal-count').textContent = journal.length;
+</script>
+  <script>
+/* Browser/device speech only. Never select a voice advertised as a remote service. */
+(function(root){
+  const rates=[0.6,0.7,0.8,0.9,1];let current=null;
+  function voices(){try{return root.speechSynthesis?.getVoices()||[];}catch(_){return [];}}
+  function voice(){return voices().filter(v=>/^en(?:[-_]|$)/i.test(v.lang)&&v.localService===true).sort((a,b)=>Number(/^en[-_]US$/i.test(b.lang))-Number(/^en[-_]US$/i.test(a.lang))||Number(b.default)-Number(a.default))[0];}
+  function stop(){if(root.speechSynthesis)root.speechSynthesis.cancel();current=null;}
+  function play(text,speed,onError){
+    stop();const selected=voice();
+    if(!root.speechSynthesis||!root.SpeechSynthesisUtterance||!selected){onError?.('Английский голос недоступен');return false;}
+    const utterance=new root.SpeechSynthesisUtterance(text);utterance.voice=selected;utterance.lang=selected.lang;utterance.rate=rates[speed-1]||1;
+    utterance.onerror=e=>{if(current===utterance){current=null;if(!['canceled','interrupted'].includes(e.error))onError?.('Не удалось воспроизвести');}};
+    utterance.onend=()=>{if(current===utterance)current=null;};current=utterance;root.speechSynthesis.speak(utterance);return true;
   }
-  function storageNote() {
-    return persistent ? '' : '<div class="notice" role="status">Хранилище браузера недоступно. Прогресс и журнал сохраняются только до закрытия страницы. Скачай журнал перед выходом.</div>';
+  // Prime asynchronously loaded voice inventories without auto-playing audio.
+  voices();root.speechSynthesis?.addEventListener?.('voiceschanged',voices);
+  root.OfflineSpeech={rates,play,stop,voice};
+})(typeof window!=='undefined'?window:globalThis);
+
+</script>
+  <script>
+(function(){
+  'use strict';
+  window.APP_VERSION='0.11';
+  const $=id=>document.getElementById(id),app=$('app'),E=window.OfflineEngine,P=window.OfflineProgress,S=window.OfflineSpeech;
+  const dialogues=window.DIALOGUES.filter(d=>d.checking==='construction'),KEY='everyday-offline-v1';
+  const statusNames={correct:'Верно',acceptable:'Понятно, но обычно так не говорят или неуместно в этой ситуации',error:'Ошибка',unknown:'Не определено',revealed:'Не определено'};
+  const esc=t=>String(t??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const modeName=m=>m==='speech'?'Речь':'Текст';
+  let saved={},persistent=true;try{saved=JSON.parse(localStorage.getItem(KEY)||'{}')||{};}catch(_){persistent=false;}
+  const availableLevels=['A1','A2','B1','B2','C1','C2'].filter(l=>dialogues.some(d=>d.level===l));
+  const settings={level:availableLevels.includes(saved.settings?.level)?saved.settings.level:availableLevels[0],topic:'random',mode:saved.settings?.mode==='speech'?'speech':'text',theme:saved.settings?.theme==='dark'?'dark':'light',speed:[1,2,3,4,5].includes(saved.settings?.speed)?saved.settings.speed:5};
+  const completionCounts=P.migrate(saved,window.CONTENT_REVISION,window.PROGRESS_MIGRATIONS);
+  const validAnswer=a=>a&&Object.hasOwn(statusNames,a.status)&&typeof a.answer==='string';
+  const validArchive=h=>h&&typeof h.runId==='string'&&typeof h.dialogue?.id==='string'&&typeof h.dialogue.title==='string'&&typeof h.dialogue.context==='string'&&typeof h.dialogue.speaker==='string'&&typeof h.dialogue.ending?.en==='string'&&Array.isArray(h.dialogue.turns)&&h.dialogue.turns.every(t=>typeof t?.en==='string'&&typeof t.ru==='string'&&typeof t.task==='string'&&typeof t.best==='string'&&Array.isArray(t.natural)&&Array.isArray(t.acceptable))&&Array.isArray(h.answers)&&h.answers.length>0&&h.answers.length<=h.dialogue.turns.length&&h.answers.every(validAnswer)&&Number.isInteger(h.index)&&h.index>=0&&h.index<=h.dialogue.turns.length&&h.answers.length>=h.index;
+  let history=(Array.isArray(saved.history)?saved.history:[]).filter(validArchive).slice(-6).map(h=>({...h,mode:h.mode==='speech'?'speech':'text'}));
+  let journal=(Array.isArray(saved.journal)?saved.journal:[]).filter(j=>j&&typeof j.answer==='string'&&typeof j.task==='string');
+  let session=saved.session,contentUpdated=Boolean(session&&session.contentRevision!==window.CONTENT_REVISION);
+  const stored=dialogues.find(d=>d.id===session?.id);
+  if(contentUpdated||!stored||!Number.isInteger(session?.index)||session.index<0||session.index>stored.turns.length||!Array.isArray(session.answers)||session.answers.length<session.index||session.answers.length>stored.turns.length||!session.answers.every(validAnswer))session=null;
+  if(session){if(!Number.isInteger(session.viewIndex)||session.viewIndex<0||session.viewIndex>session.index)session.viewIndex=session.index;session.mode=session.mode==='speech'?'speech':'text';session.draft=typeof session.draft==='string'?session.draft:'';session.views=session.views&&typeof session.views==='object'?session.views:{};session.runId=typeof session.runId==='string'?session.runId:runId();session.completedRecorded=Boolean(session.completedRecorded||session.index===stored.turns.length);session.phase=['intro','work','review','done'].includes(session.phase)?session.phase:session.index===stored.turns.length?'done':session.answers[session.index]?'review':'work';}
+  let screen='home',viewIndex=session?.index||0,variantsOpen=false,toastTimer;
+  function runId(){return Date.now()+'-'+Math.random().toString(36).slice(2);}
+  function current(){return dialogues.find(d=>d.id===session?.id);}
+  function save(){try{localStorage.setItem(KEY,JSON.stringify({version:4,progressRevision:window.CONTENT_REVISION,settings,completionCounts,history,journal,session}));}catch(_){persistent=false;}}
+  function applyTheme(){document.documentElement.dataset.theme=settings.theme;document.querySelector('meta[name="theme-color"]')?.setAttribute('content',settings.theme==='dark'?'#111014':'#f5f7fb');}
+  function toast(t){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,2600);}
+  function stop(){S.stop();}
+  function page(name,html){screen=name;app.innerHTML=html;window.scrollTo(0,0);}
+  function nav(back,next,action='next',disabled=false){return `<div class="nav"><button type="button" data-action="${back}">Назад</button><button type="button" class="primary" data-action="${action}" ${disabled?'disabled':''}>${next}</button></div>`;}
+  function top(title,counter=''){return `<div class="topline"><div class="screen-title">${esc(title)}</div><span class="counter">${esc(counter)}</span><button class="exit" type="button" data-action="home" aria-label="На главный экран">×</button></div>`;}
+  function setPhase(phase){session.phase=phase;session.viewIndex=viewIndex;save();}
+  function choices(){return dialogues.filter(d=>d.level===settings.level&&(settings.topic==='random'||d.topic===settings.topic));}
+  function renderHome(){
+    const topics=[...new Map(dialogues.filter(d=>d.level===settings.level).map(d=>[d.topic,d.topicLabel.replace(/ · пилот$/,'')])).entries()];
+    page('home',`<section class="screen home">
+      <div class="theme-row"><span>Оформление</span><div class="segments theme-control"><button type="button" data-theme="light" aria-pressed="${settings.theme==='light'}">Светлое</button><button type="button" data-theme="dark" aria-pressed="${settings.theme==='dark'}">Темное</button></div></div>
+      <fieldset class="field"><legend>Уровень</legend><div class="levels">${['A1','A2','B1','B2','C1','C2'].map(l=>`<button type="button" data-level="${l}" aria-pressed="${l===settings.level}" ${availableLevels.includes(l)?'':'disabled'}>${l}</button>`).join('')}</div></fieldset>
+      <div class="field"><label for="topic" class="field-label">Тема</label><select id="topic"><option value="random">Случайная</option>${topics.map(([id,label])=>`<option value="${esc(id)}" ${id===settings.topic?'selected':''}>${esc(label)}</option>`).join('')}</select></div>
+      <fieldset class="field"><legend>Режим</legend><div class="segments"><button type="button" data-mode="text" aria-pressed="${settings.mode==='text'}">Текст</button><button type="button" data-mode="speech" aria-pressed="${settings.mode==='speech'}">Речь</button></div></fieldset>
+      <div class="home-actions"><button type="button" data-action="history">История</button>${session&&session.index<current().turns.length?'<button type="button" data-action="resume">Продолжить</button>':''}<button type="button" class="primary" data-action="start" ${choices().length?'':'disabled'}>Начать диалог</button></div>
+      ${!persistent?'<p class="storage-error" role="status">Сохранение недоступно</p>':''}${contentUpdated?'<p class="storage-error" role="status">Сюжет обновлен. Начни диалог заново.</p>':''}</section>`);
   }
-  function toast(message) {
-    $('toast').textContent = message;
-    $('toast').hidden = false;
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => { $('toast').hidden = true; }, 3500);
+  function home(){stop();settings.topic='random';save();renderHome();}
+  function begin(id){
+    stop();const pool=P.eligible(choices(),completionCounts,settings.mode);const d=id?dialogues.find(d=>d.id===id):pool[Math.floor(Math.random()*pool.length)];if(!d)return;
+    session={id:d.id,mode:settings.mode,contentRevision:window.CONTENT_REVISION,index:0,answers:[],draft:'',views:{},runId:runId(),startedAt:new Date().toISOString(),completedRecorded:false,phase:'intro'};viewIndex=0;contentUpdated=false;save();renderIntro();
   }
-  function current() { return dialogues.find(d => d.id === session?.id); }
-  function pool() { return dialogues.filter(d => d.level === settings.level && d.length === settings.length && (settings.topic === 'random' || d.topic === settings.topic)); }
-  function availablePool() {
-    const choices = pool();
-    const ids = E.eligible(choices.map(d => d.id), [...completedIds]);
-    return choices.filter(d => ids.includes(d.id));
+  function renderIntro(){stop();setPhase('intro');const d=current();page('intro',`<section class="screen intro"><div class="intro-body"><h1>${esc(d.title)}</h1><p class="context">${esc(d.context)}</p></div>${nav('home','Дальше','intro-next')}</section>`);}
+  const listenIcon='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/></svg>';
+  function listen(ending=false){return `<button type="button" class="listen" data-action="${ending?'listen-ending':'listen'}" aria-label="Прослушать">${listenIcon}</button>`;}
+  function speeds(){return `<div class="speeds" role="group" aria-label="Скорость речи">${S.rates.map((rate,i)=>`<button type="button" data-speed="${i+1}" aria-label="Скорость ${i+1} из 5" aria-pressed="${settings.speed===i+1}">${rate.toFixed(1)}×</button>`).join('')}</div>`;}
+  function view(){return session.views[viewIndex]||(session.views[viewIndex]={text:false,translation:false,task:false});}
+  function renderWork(){
+    stop();const d=current();if(!d)return home();if(viewIndex>=d.turns.length)return renderDone();setPhase('work');const t=d.turns[viewIndex],a=session.answers[viewIndex],v=view(),audio=session.mode==='speech',taskShown=!audio||v.task;
+    const english=!audio||v.text;
+    page('work',`<section class="screen work">${top(d.title,`${viewIndex+1}/${d.turns.length}`)}<div class="work-grid">
+      <section class="panel partner-panel" aria-label="Реплика собеседника"><div class="partner-scroll">${t.stage?`<p class="scene-note">${esc(t.stage)}</p>`:''}${english?`<p class="english" lang="en">${esc(t.en)}</p>${v.translation?`<p class="translation">${esc(t.ru)}</p>`:''}`:`<div class="audio-main">${listen()}${speeds()}</div>`}</div>
+      <div class="partner-controls">${english?listen():''}${audio?`<button type="button" class="toggle" data-action="toggle-text">${v.text?'Скрыть текст':'Посмотреть текст'}</button>`:''}${english?`<button type="button" class="toggle" data-action="translation">${v.translation?'Скрыть перевод':'Перевод'}</button>`:''}${audio&&english?speeds():''}</div></section>
+      <section class="panel task-panel" aria-label="Твоя реплика">${taskShown?`<p class="task">${esc(t.task)}</p>`:'<button type="button" data-action="show-task">Показать</button>'}</section>
+      <form id="answer-form" class="panel input-panel"><textarea id="answer" aria-label="Твой ответ" lang="en" spellcheck="false" autocomplete="off" autocapitalize="sentences" ${a?'readonly class="read-only"':''} ${taskShown?'':'disabled'}>${esc(a?a.answer:session.draft)}</textarea></form>
+      </div><div class="nav"><button type="button" data-action="back">Назад</button>${a?'<button type="button" class="primary" data-action="show-review">Дальше</button>':`<button type="submit" form="answer-form" class="primary" id="check-answer" ${taskShown&&session.draft.trim()?'':'disabled'}>Проверить</button>`}</div></section>`);
   }
-  function rememberSession() {
-    const d = current();
-    if (!d || !session.answers.length) return;
-    if (!session.runId) session.runId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    if (session.index === d.turns.length) completedIds.add(d.id);
-    const snapshot = JSON.parse(JSON.stringify({runId: session.runId, index: session.index, startedAt: session.startedAt,
-      updatedAt: new Date().toISOString(), answers: session.answers, dialogue: d}));
-    history = [...history.filter(entry => entry.runId !== session.runId), snapshot].slice(-6);
+  function annotated(answer,a){
+    if(!Array.isArray(a.annotations))return `<div class="annotated-answer" lang="en">${esc(answer)}</div>`;
+    let out='',cursor=0;for(const t of a.annotations){if(!Number.isInteger(t.start)||!Number.isInteger(t.end)||t.start<cursor||t.end>answer.length)continue;out+=esc(answer.slice(cursor,t.start));for(const gap of a.insertions||[])if(gap.at===t.start)out+=`<span class="word-error" title="${esc(gap.note)}">[${esc(gap.label)}]</span> `;out+=`<span class="word-${['correct','acceptable','error'].includes(t.color)?t.color:'neutral'}" title="${esc(t.note||'')}">${esc(answer.slice(t.start,t.end))}</span>`;cursor=t.end;}out+=esc(answer.slice(cursor));return `<div class="annotated-answer" lang="en">${out}</div>`;
   }
-  function renderHome() {
-    screen = 'home';
-    const choices = pool();
-    const available = availablePool();
-    const remaining = choices.filter(d => !completedIds.has(d.id)).length;
-    const previous = current();
-    app.innerHTML = `${storageNote()}${contentUpdated ? '<p class="notice">Сюжет обновился. Текущий диалог старой версии нужно начать заново. История и журнал нераспознанных ответов сохранены.</p>' : ''}<div class="menu-tools"><button class="secondary" data-action="history">История · ${history.length}</button><button class="text-button" data-action="update">Загрузить свежую версию</button></div><section class="hero"><div class="hero-copy"><div class="eyebrow">Практика настоящих разговоров</div>
-      <h1>Маленький диалог.<br>Больше уверенности.</h1><p>Переводи реплики на английский и пробуй, как это звучит в обычной жизни. Один разговор за раз.</p>
-      <div class="features"><span class="pill">Живой английский</span><span class="pill">Без интернета</span><span class="pill">Без таймера</span></div>
-      <div class="sample"><small>В кафе это может звучать просто</small><p>“Small, please.”</p><small>Короткий ответ тоже бывает лучшим ответом.</small></div></div>
-      <div class="setup-card"><h2>Твой следующий разговор</h2>
-      <div class="pilot-offer"><h3>Шесть новых разговоров</h3><p class="hint">Восемь диалогов с разбором конструкций, грамматики и известных ошибок. Шесть новых — для следующего испытания.</p><div class="actions">${dialogues.filter(d=>d.id.startsWith('batch-')).map(d=>`<button class="quiet" data-pilot="${d.id}">${escape(d.title)}</button>`).join('')}</div><h3>Предыдущие два диалога</h3><div class="actions">${dialogues.filter(d=>!d.id.startsWith('batch-')).map(d=>`<button class="quiet" data-pilot="${d.id}">${escape(d.title)}</button>`).join('')}</div></div>
-      ${previous ? `<div class="resume"><p><strong>${escape(previous.title)}</strong><br><small>${session.index === previous.turns.length ? 'Диалог завершен — результаты сохранены' : `Сохранено: ${session.index} из ${previous.turns.length} реплик`}</small></p><div class="actions"><button class="quiet" data-action="resume">${session.index === previous.turns.length ? 'Посмотреть результат' : 'Продолжить'}</button><button class="text-button" data-action="discard">Убрать сохраненный диалог</button></div></div>` : ''}
-      <fieldset class="field"><legend>Уровень английского</legend><div class="levels">${['A1','A2','B1','B2','C1','C2'].map(level => `<button class="choice" data-level="${level}" aria-pressed="${settings.level === level}">${level}</button>`).join('')}</div></fieldset>
-      <div class="field"><label for="topic">Тема</label><select id="topic"><option value="random" ${settings.topic === 'random' ? 'selected' : ''}>Случайная тема</option>${topics.map(([id,label]) => `<option value="${escape(id)}" ${settings.topic === id ? 'selected' : ''}>${escape(label)}</option>`).join('')}</select></div>
-      <p class="hint">В каждом диалоге — 10 твоих реплик.</p>
-      ${choices.length ? `<div class="field"><label for="dialogue-choice">Ситуация</label><select id="dialogue-choice"><option value="">Случайная из ${available.length}${remaining ? ' непройденных' : ' — повторение'}</option>${choices.map(d => `<option value="${d.id}" ${selectedId === d.id ? 'selected' : ''} ${remaining && completedIds.has(d.id) ? 'disabled' : ''}>${escape(d.title)}${completedIds.has(d.id) ? ' · пройден' : ''}</option>`).join('')}</select><p class="hint">${remaining ? `Еще не пройдено: ${remaining} из ${choices.length}.` : 'Все диалоги этого выбора пройдены — можно повторять.'}</p></div>` : `<p class="notice">Для ${settings.level} в этом выборе диалогов пока нет. Выбери A1 или другую тему.</p>`}
-      <button class="primary full" data-action="start" ${choices.length ? '' : 'disabled'}>Начать диалог</button>
-      <p class="setup-note">Диалогов в подборке: ${dialogues.length}. Тем: ${topics.length}. Каждый диалог — 10 твоих реплик. Сначала предлагаются непройденные диалоги.</p></div></section>`;
-  }
-  function begin(forceRandom = false) {
-    const choices = availablePool();
-    if (!choices.length) return;
-    const pickPool = forceRandom && choices.length > 1 ? choices.filter(d => d.id !== session?.id) : choices;
-    const id = !forceRandom && choices.some(d => d.id === selectedId) ? selectedId : E.pick(pickPool.map(d => d.id), []);
-    session = {id, contentRevision: window.CONTENT_REVISION, index: 0, answers: [], draft: '', startedAt: new Date().toISOString()};
-    contentUpdated = false;
-    save(); screen = 'practice'; renderPractice(); window.scrollTo(0, 0);
-  }
-  function partner(en, ru, speaker, stage = '') {
-    return `${stage ? `<p class="scene-note">${escape(stage)}</p>` : ''}<p class="speaker">${escape(speaker)}</p><div class="partner"><p class="english" lang="en">${escape(en)}</p><details><summary>Показать перевод</summary><p class="translation">${escape(ru)}</p></details></div>`;
-  }
-  function variants(turn) {
-    const choices = E.preferred(turn);
-    return `<details class="variants"><summary>Частые варианты ответа · ${choices.length}</summary><ul lang="en">${choices.map(item => `<li>${escape(item)}</li>`).join('')}</ul><p class="hint">Показано не больше 10 естественных вариантов для этой ситуации. Приложение распознает и другие формулировки.</p></details>`;
-  }
-  function annotated(answer,record){
-    if(!Array.isArray(record.annotations))return '';
-    let out='',cursor=0;
-    for(const token of record.annotations){
-      out+=escape(answer.slice(cursor,token.start));
-      for(const gap of record.insertions||[])if(gap.at===token.start)out+=`<span class="word-error missing-word" title="${escape(gap.note)}">[${escape(gap.label)}]</span> `;
-      out+=`<span class="word-${['correct','acceptable','error'].includes(token.color)?token.color:'neutral'}" title="${escape(token.note||'')}">${escape(answer.slice(token.start,token.end))}</span>`;cursor=token.end;
-    }
-    out+=escape(answer.slice(cursor));
-    return `<div class="annotated-answer" lang="en">${out}</div><p class="hint">Зеленое — распознано · желтое — неудачно здесь · красное — ошибка · нейтральное — нет уверенной оценки. Скобки обозначают пропущенное слово.</p>`;
-  }
-  function feedback(result, turn) {
-    const message = result.status === 'unknown' ? 'В базе пока нет такого ответа. Возможно, он правильный. Попытка добавлена в журнал для разбора.' :
-      result.status === 'acceptable' || result.status === 'error' ? result.note : result.status === 'revealed' ? 'Можно запомнить эту фразу и продолжить.' : 'Так естественно сказать в этой ситуации.';
-    return `<div class="feedback ${result.status}" role="status"><span class="status ${result.status}">${statuses[result.status]}</span>${annotated(result.answer||session?.answers[session.index]?.answer||'',result)}<p class="explanation">${escape(result.status==='unknown'&&result.note?result.note:message)}</p>${result.fragment?`<p class="diagnostic">Фрагмент: <span lang="en">${escape(result.fragment)}</span></p>`:''}${result.correction?`<p class="diagnostic">Вариант исправления: <span lang="en">${escape(result.correction)}</span></p>`:''}${result.orthographyNote?`<p class="hint">${escape(result.orthographyNote)}</p>`:""}${Array.isArray(result.diagnostics)&&result.diagnostics.length>1?`<ul class="diagnostic-list">${result.diagnostics.map(d=>`<li>${escape(d.note)}</li>`).join('')}</ul>`:""}${Array.isArray(result.grammarNotes)?`<p class="hint">${result.grammarNotes.map(escape).join(" ")}</p>`:""}${Array.isArray(result.blocks)&&result.blocks.length?`<details class="parse-details"><summary>Что распознано</summary><ul>${result.blocks.map(b=>`<li>${escape(b.role)}: <span lang="en">${escape(b.text)}</span></li>`).join('')}</ul></details>`:''}<h3>Как можно сказать</h3><p class="best" lang="en">${escape(turn.best)}</p>${variants(turn)}</div>`;
-  }
-  function renderPractice() {
-    const d = current();
-    if (!d) { renderHome(); return; }
-    screen = 'practice';
-    const done = session.index >= d.turns.length;
-    const record = session.answers[session.index];
-    app.innerHTML = `<section class="practice">${storageNote()}<div class="practice-top"><button class="text-button" data-action="home">К выбору диалога</button><span class="progress-label">${done ? 'Завершено' : `Твоя реплика ${session.index + 1} из ${d.turns.length}`}</span></div>
-      <div class="progress" role="progressbar" aria-label="Пройдено реплик" aria-valuemin="0" aria-valuemax="${d.turns.length}" aria-valuenow="${session.index}"><div class="progress-fill" style="width:${100 * session.index / d.turns.length}%"></div></div>
-      <div class="meta"><span class="pill">${d.level}</span><span class="pill">${d.topicLabel}</span><span class="pill">${labels[d.length]}</span><span class="pill">${d.checking==='construction'?'Новая проверка':'Проверка по базе'}</span></div><h1>${escape(d.title)}</h1><p class="context">${escape(d.context)}</p><p class="hint">${escape(d.tone)}</p>
-      <div class="conversation">${d.turns.slice(0, session.index).map((t, index) => {
-        const a = session.answers[index];
-        return `<div class="exchange">${partner(t.en,t.ru,d.speaker,t.stage)}<div class="answer-history"><p class="speaker">Ты · <span class="status ${a.status}">${statuses[a.status]}</span></p><p class="original">${escape(t.task)}</p>${a.answer ? `${annotated(a.answer,a)||`<p lang="en">${escape(a.answer)}</p>`}` : '<p class="muted">Ответ пропущен</p>'}<p class="reference">Эталон: <span lang="en">${escape(t.best)}</span></p>${a.note?`<p class="hint">${escape(a.note)}</p>`:""}${a.correction?`<p class="hint">Вариант исправления: <span lang="en">${escape(a.correction)}</span></p>`:""}${variants(t)}<button class="text-button" data-copy-turn="${index}">Скопировать фрагмент</button></div></div>`;
-      }).join('')}
-      ${done ? partner(d.ending.en,d.ending.ru,d.speaker) : `<div id="active-turn">${partner(d.turns[session.index].en,d.turns[session.index].ru,d.speaker,d.turns[session.index].stage)}
-        <section class="answer-card"><label for="answer">Твоя реплика — переведи на английский</label><p class="task">${escape(d.turns[session.index].task)}</p>
-        <form id="answer-form"><textarea id="answer" lang="en" spellcheck="false" autocomplete="off" autocapitalize="sentences" placeholder="Напиши, как бы ты это сказал…" ${record ? 'readonly' : ''}>${escape(record ? record.answer : session.draft)}</textarea>
-        ${record ? '' : '<div class="actions"><button class="primary" type="submit">Проверить</button><button class="secondary" type="button" data-action="reveal">Не знаю, показать ответ</button></div><p class="hint">Enter — проверить · Shift + Enter — новая строка</p>'}</form>
-        ${record ? `${feedback(record,d.turns[session.index])}<div class="actions"><button class="primary" data-action="next">${session.index === d.turns.length - 1 ? 'Завершить диалог' : 'Следующая реплика'}</button><button class="secondary" data-action="retry">Изменить ответ</button><button class="text-button" data-copy-turn="${session.index}">Скопировать фрагмент</button></div>` : ''}</section></div>`}
-      </div>${done ? completion(d) : ''}
-      <div class="actions"><button class="text-button" data-action="copy-all">Скопировать ${done ? 'весь диалог' : 'диалог до этого места'}</button></div></section>`;
-    if (!record && !done) $('answer').focus({preventScroll: true});
-  }
-  function completion(d) {
-    const counts = key => session.answers.filter(a => a.status === key).length;
-    return `<div class="completion" id="completion"><div class="eyebrow">Еще один разговор позади</div><h2>Диалог пройден</h2><p>Посмотри на удачные фразы. К ним можно вернуться в переписке выше.</p><div class="stats">${[['correct','Верно'],['acceptable','Допустимо'],['error','Ошибка'],['unknown','Не распознано'],['revealed','Без ответа']].map(([key,label]) => `<div class="stat"><strong>${counts(key)}</strong>${label}</div>`).join('')}</div><div class="actions"><button class="primary" data-action="another">Еще одна ситуация</button><button class="secondary" data-action="home">Изменить настройки</button></div></div>`;
-  }
-  function renderHistory() {
-    screen = 'history';
-    app.innerHTML = `<section class="practice">${storageNote()}<div class="practice-top"><button class="text-button" data-action="home">В главное меню</button><span class="progress-label">${history.length} из 6 записей</span></div><h1>История</h1><p class="context">Последние шесть разговоров с твоими ответами. Старые записи удаляются автоматически. Отметки о пройденных диалогах сохраняются отдельно.</p>${history.length ? [...history].reverse().map(entry => `<article class="card history-card"><div class="meta"><span class="pill">${escape(entry.dialogue.level)}</span><span class="pill">${escape(entry.dialogue.topicLabel)}</span><span class="pill">${labels[entry.dialogue.length] || ''}</span></div><h2>${escape(entry.dialogue.title)}</h2><p class="hint">${escape(new Date(entry.updatedAt).toLocaleString('ru-RU'))} · ${entry.index === entry.dialogue.turns.length ? 'Завершен' : `В процессе · ${entry.answers.length} из ${entry.dialogue.turns.length} реплик`}</p><div class="actions"><button class="secondary" data-history-view="${escape(entry.runId)}">Посмотреть ответы</button><button class="text-button" data-history-copy="${escape(entry.runId)}">Скопировать диалог</button></div></article>`).join('') : '<p class="empty-state">Пока здесь пусто. Разговор появится после первого проверенного ответа.</p>'}</section>`;
-    window.scrollTo(0,0);
-  }
-  function renderHistoryEntry(entry) {
-    const d = entry.dialogue;
-    const done = entry.index === d.turns.length;
-    screen = 'history-entry';
-    app.innerHTML = `<section class="practice"><div class="practice-top"><button class="text-button" data-action="history">К истории</button><button class="text-button" data-history-copy="${escape(entry.runId)}">Скопировать диалог</button></div><div class="meta"><span class="pill">${escape(d.level)}</span><span class="pill">${escape(d.topicLabel)}</span></div><h1>${escape(d.title)}</h1><p class="context">${escape(d.context)}</p><p class="hint">${done ? 'Завершенный диалог' : 'Сохраненные ответы незавершенного диалога'} · ${escape(new Date(entry.updatedAt).toLocaleString('ru-RU'))}</p><div class="conversation">${entry.answers.map((a,index) => {
-      const t = d.turns[index];
-      return `<div class="exchange">${partner(t.en,t.ru,d.speaker,t.stage)}<div class="answer-history"><p class="speaker">Ты · <span class="status ${a.status}">${statuses[a.status]}</span></p><p class="original">${escape(t.task)}</p>${a.answer?annotated(a.answer,a)||`<p lang="en">${escape(a.answer)}</p>`:'<p>Ответ пропущен</p>'}<p class="reference">Эталон: <span lang="en">${escape(t.best)}</span></p>${a.note ? `<p class="hint">${escape(a.note)}</p>` : ''}${a.correction?`<p class="hint">Вариант исправления: <span lang="en">${escape(a.correction)}</span></p>`:""}${variants(t)}</div></div>`;
-    }).join('')}${done ? partner(d.ending.en,d.ending.ru,d.speaker) : ''}</div></section>`;
-    window.scrollTo(0,0);
-  }
-  function submit(reveal = false) {
-    const d = current();
-    if (!d || session.index >= d.turns.length || session.answers[session.index]) return;
-    const answer = $('answer').value.trim();
-    if (!reveal && !answer) { toast('Сначала напиши ответ или открой эталон.'); $('answer').focus(); return; }
-    const t = d.turns[session.index];
-    const result = reveal ? {status:'revealed'} : E.check(answer, t);
-    const record = {...result, answer, at: new Date().toISOString()};
-    session.answers[session.index] = record;
-    session.draft = answer;
-    if (result.status === 'unknown') journal.push({at: record.at, dialogueId: d.id, title: d.title, level: d.level, context: d.context, partner: t.en, task: t.task, answer, best: t.best, turn: session.index + 1});
-    rememberSession(); save(); renderPractice();
-    document.querySelector('.feedback')?.scrollIntoView({block:'nearest',behavior:'auto'});
-    document.querySelector('[data-action="next"]')?.focus({preventScroll:true});
-  }
-  function fragment(index, d = current(), source = session) {
-    const t = d.turns[index], a = source.answers[index];
-    return `${t.stage ? t.stage + '\n' : ''}${d.speaker}: ${t.en}\nПеревод: ${t.ru}\nМоя заданная реплика: ${t.task}\nМой ответ: ${a?.answer || '(нет ответа)'}\nРезультат: ${a ? statuses[a.status] : 'Еще не проверен'}${a?.note ? "\nПояснение: "+a.note : ""}${a?.correction ? "\nВариант исправления: "+a.correction : ""}\nЭталон: ${t.best}\nЕстественные варианты: ${E.preferred(t).join(' / ')}`;
-  }
-  function dialogueText(index, d = current(), source = session) {
-    const header = `Everyday · ${d.level} · ${d.topicLabel} · ${d.title}\nКонтекст: ${d.context}\nТон: ${d.tone}\n`;
-    if (Number.isInteger(index)) return header + '\n' + fragment(index,d,source);
-    const limit = source === session ? Math.min(source.index + 1, d.turns.length) : source.answers.length;
-    return header + '\n' + d.turns.slice(0,limit).map((_,i) => fragment(i,d,source)).join('\n\n') + (source.index === d.turns.length ? `\n\n${d.speaker}: ${d.ending.en}\nПеревод: ${d.ending.ru}` : '');
-  }
-  async function copy(text) {
-    try {
-      if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
-      await navigator.clipboard.writeText(text); toast('Скопировано. Можно вставить в чат.');
-    } catch (_) {
-      $('copy-text').value = text;
-      $('copy-dialog').showModal();
-      $('copy-text').focus(); $('copy-text').select();
-    }
-  }
-  function renderJournal() {
-    $('journal-content').innerHTML = journal.length ? [...journal].reverse().map(item => `<article class="journal-entry"><p class="muted">${escape(item.title)} · ${escape(item.level)} · ${escape(new Date(item.at).toLocaleString('ru-RU'))}</p><p lang="en">${escape(item.partner)}</p><p>${escape(item.task)}</p><blockquote lang="en">${escape(item.answer)}</blockquote><p>Эталон: <span lang="en">${escape(item.best)}</span></p></article>`).join('') : '<p class="empty-state">Пока здесь пусто. Нераспознанные ответы появятся после проверки.</p>';
-    $('export-journal').disabled = !journal.length;
-    $('clear-journal').disabled = !journal.length;
-    $('clear-confirm').hidden = true;
-  }
-  function exportJournal() {
-    const text = `Everyday — нераспознанные ответы\nЭто не список ошибок. Требуется разбор правильности и естественности.\n\n` + journal.map(item => `${item.level} · ${item.title}\nКонтекст: ${item.context}\nСобеседник: ${item.partner}\nЗадание: ${item.task}\nМой ответ: ${item.answer}\nЭталон: ${item.best}\nДата: ${item.at}`).join('\n\n---\n\n');
-    const url = URL.createObjectURL(new Blob([text], {type:'text/plain;charset=utf-8'}));
-    const link = document.createElement('a');
-    link.href = url; link.download = `everyday-answers-${new Date().toISOString().slice(0,10)}.txt`;
-    document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }
-  app.addEventListener('click', event => {
-    const button = event.target.closest('button');
-    if (!button) return;
-    if (button.dataset.pilot) {const d=dialogues.find(d=>d.id===button.dataset.pilot&&d.checking==='construction');if(d){settings.level=d.level;settings.topic=d.topic;selectedId=d.id;begin();}return;}
-    if (button.dataset.historyView) { const entry = history.find(item => item.runId === button.dataset.historyView); if (entry) renderHistoryEntry(entry); return; }
-    if (button.dataset.historyCopy) { const entry = history.find(item => item.runId === button.dataset.historyCopy); if (entry) copy(dialogueText(undefined,entry.dialogue,entry)); return; }
-    if (button.dataset.level) { settings.level = button.dataset.level; selectedId = ''; save(); renderHome(); document.querySelector(`[data-level="${settings.level}"]`).focus(); return; }
-    if (button.hasAttribute('data-copy-turn')) { copy(dialogueText(Number(button.dataset.copyTurn))); return; }
-    switch (button.dataset.action) {
-      case 'start': begin(); break;
-      case 'update': {
-        if (!['http:','https:'].includes(window.location.protocol)) { toast('Для обновления оффлайн файла скачай новый index.html с сайта проекта.'); break; }
-        if (navigator.onLine === false) { toast('Для загрузки новой версии нужен интернет.'); break; }
-        save(); const url = new URL(window.location.href); url.searchParams.set('update',String(Date.now())); window.location.assign(url.href); break;
-      }
-      case 'resume': screen = 'practice'; renderPractice(); window.scrollTo(0,0); break;
-      case 'discard': session = null; save(); renderHome(); break;
-      case 'home': renderHome(); window.scrollTo(0,0); break;
-      case 'history': renderHistory(); break;
-      case 'reveal': submit(true); break;
-      case 'retry': session.draft = session.answers[session.index].answer; session.answers.length = session.index; if (!session.answers.length) history = history.filter(entry => entry.runId !== session.runId); else rememberSession(); save(); renderPractice(); break;
-      case 'next': if (!session.answers[session.index]) break; session.index++; session.draft = ''; rememberSession(); save(); renderPractice(); (document.getElementById('active-turn') || document.getElementById('completion'))?.scrollIntoView({block:'start'}); break;
-      case 'copy-all': copy(dialogueText()); break;
-      case 'another': { const d = current(); settings.level = d.level; if (settings.topic !== 'random') settings.topic = d.topic; settings.length = d.length; begin(true); break; }
+  function detail(a){const notes=[];if(['error','acceptable'].includes(a.status)&&a.note)notes.push(a.note);if(a.orthographyNote)notes.push(a.orthographyNote);for(const d of a.diagnostics||[])if(d.note&&!notes.includes(d.note))notes.push(d.note);for(const n of a.grammarNotes||[])if(!notes.includes(n))notes.push(n);return notes.map(n=>`<p class="explanation">${esc(n)}</p>`).join('');}
+  function renderReview(){stop();const d=current(),t=d.turns[viewIndex],a=session.answers[viewIndex];if(!a)return renderWork();setPhase('review');page('review',`<section class="screen">${top(d.title,`${viewIndex+1}/${d.turns.length}`)}<div class="review-scroll"><section class="panel review-card ${a.status}"><h1 class="status ${a.status}">${statusNames[a.status]}</h1>${annotated(a.answer,a)}${detail(a)}<div><p class="reference-label">Эталон</p><p class="best" lang="en">${esc(t.best)}</p></div><button type="button" class="variants-button" data-action="variants" aria-expanded="${variantsOpen}">${variantsOpen?'Скрыть варианты':'Другие варианты'}</button>${variantsOpen?`<ul class="variants" lang="en">${E.preferred(t).map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}</section></div>${nav('review-back','Дальше')}</section>`);}
+  function remember(){const d=current();if(!d||!session.answers.length)return;const h=JSON.parse(JSON.stringify({runId:session.runId,mode:session.mode,index:session.index,startedAt:session.startedAt,updatedAt:new Date().toISOString(),answers:session.answers,dialogue:d}));history=[...history.filter(x=>x.runId!==h.runId),h].slice(-6);}
+  function submit(){const d=current();if(screen!=='work'||viewIndex!==session.index||session.answers[viewIndex]||session.mode==='speech'&&!view().task)return;const answer=$('answer').value.trim();if(!answer)return;const result=E.check(answer,d.turns[viewIndex]);if(result.status==='empty')return;const a={...result,answer,at:new Date().toISOString()};session.answers[viewIndex]=a;session.draft=answer;if(a.status==='unknown')journal.push({at:a.at,dialogueId:d.id,title:d.title,level:d.level,topic:d.topicLabel,mode:session.mode,context:d.context,partner:d.turns[viewIndex].en,partnerTranslation:d.turns[viewIndex].ru,stage:d.turns[viewIndex].stage||'',task:d.turns[viewIndex].task,answer,best:d.turns[viewIndex].best,turn:viewIndex+1});$('answer').blur();remember();save();variantsOpen=false;renderReview();}
+  function next(){stop();if(screen!=='review')return;const d=current();if(viewIndex<session.index){viewIndex++;return renderWork();}if(!session.answers[session.index])return;session.index++;session.draft='';viewIndex=session.index;if(session.index===d.turns.length&&!session.completedRecorded){completionCounts[session.mode][d.id]=P.count(completionCounts[session.mode][d.id])+1;session.completedRecorded=true;}remember();save();variantsOpen=false;session.index===d.turns.length?renderDone():renderWork();}
+  function renderDone(){stop();setPhase('done');const d=current(),count=k=>session.answers.filter(a=>a.status===k||(k==='unknown'&&a.status==='revealed')).length;page('done',`<section class="screen done"><h1>${esc(d.title)}</h1><div class="done-content"><div class="panel ending">${session.mode==='text'?`<p class="english" lang="en">${esc(d.ending.en)}</p>`:''}<div class="partner-controls">${listen(true)}<button type="button" class="toggle" data-action="ending-text">${session.mode==='speech'?'Текст':'Перевод'}</button></div><p id="ending-extra" class="translation" hidden>${esc(session.mode==='speech'?d.ending.en:d.ending.ru)}</p></div><div class="stats">${[['correct','Верно'],['acceptable','Понятно'],['error','Ошибка'],['unknown','Не определено']].map(([k,label])=>`<div class="stat ${k}"><strong>${count(k)}</strong>${label}</div>`).join('')}</div></div><div class="done-actions"><button type="button" data-action="copy-all">Скопировать диалог</button><button type="button" data-action="replay">Пройти заново</button><button type="button" class="primary" data-action="home">Выход</button></div></section>`);}
+  function renderHistory(tab='dialogues'){stop();const journalTab=tab==='journal';page(journalTab?'journal':'history',`<section class="screen">${top('История')}<div class="segments"><button type="button" data-action="history" aria-pressed="${!journalTab}">Диалоги · ${history.length}</button><button type="button" data-action="journal" aria-pressed="${journalTab}">Не определено · ${journal.length}</button></div><div class="list-scroll">${journalTab?journalHTML():history.length?[...history].reverse().map(h=>`<article class="panel history-card"><div class="meta"><span>${modeName(h.mode)}</span><span>${h.index}/${h.dialogue.turns.length}</span></div><h2>${esc(h.dialogue.title)}</h2><div class="actions"><button type="button" data-history-view="${esc(h.runId)}">Открыть</button><button type="button" data-history-copy="${esc(h.runId)}">Скопировать</button></div></article>`).join(''):'<p class="empty">Пусто</p>'}</div>${journalTab?`<button type="button" class="primary" data-action="copy-journal" ${journal.length?'':'disabled'}>Скопировать все</button>`:'<button type="button" data-action="home">Назад</button>'}</section>`);}
+  function journalHTML(){return journal.length?[...journal].reverse().map(j=>`<article class="panel journal-entry"><p class="meta">${esc(j.title)} · ${esc(j.level)} · ${modeName(j.mode)}</p><p lang="en">${esc(j.partner)}</p><p>${esc(j.task)}</p><blockquote lang="en">${esc(j.answer)}</blockquote><p class="best" lang="en">${esc(j.best)}</p></article>`).join(''):'<p class="empty">Пусто</p>';}
+  function renderHistoryEntry(h){const d=h.dialogue;page('history-entry',`<section class="screen">${top(d.title)}<div class="list-scroll"><p class="context">${esc(d.context)}</p>${h.answers.map((a,i)=>{const t=d.turns[i];return `<article class="panel history-exchange">${t.stage?`<p class="scene-note">${esc(t.stage)}</p>`:''}<p class="english" lang="en">${esc(t.en)}</p><p class="translation">${esc(t.ru)}</p><p>${esc(t.task)}</p><span class="status ${a.status}">${statusNames[a.status]}</span>${annotated(a.answer,a)}${detail(a)}<div><p class="reference-label">Эталон</p><p class="best" lang="en">${esc(t.best)}</p></div></article>`;}).join('')}${h.index===d.turns.length?`<p class="english" lang="en">${esc(d.ending.en)}</p>`:''}</div>${nav('history','Скопировать','copy-entry')}</section>`);app.dataset.historyId=h.runId;}
+  function dialogueText(d,source){return `Everyday · ${d.level} · ${d.topicLabel} · ${modeName(source.mode)}\n${d.title}\nПредыстория: ${d.context}\n\n`+source.answers.map((a,i)=>{const t=d.turns[i];return `${t.stage?t.stage+'\n':''}${d.speaker}: ${t.en}\nПеревод: ${t.ru}\nЗадание: ${t.task}\nМой ответ: ${a.answer}\nОценка: ${statusNames[a.status]}${['error','acceptable'].includes(a.status)&&a.note?'\nПояснение: '+a.note:''}${a.correction?'\nИсправление: '+a.correction:''}\nЭталон: ${t.best}\nВарианты: ${E.preferred(t).join(' / ')}`;}).join('\n\n')+(source.index===d.turns.length?`\n\n${d.speaker}: ${d.ending.en}\nПеревод: ${d.ending.ru}`:'');}
+  function journalText(){return journal.map(j=>`${j.level} · ${j.title} · ${modeName(j.mode)}\n${j.context||''}\n${j.stage||''}\nСобеседник: ${j.partner}\nПеревод: ${j.partnerTranslation||''}\nЗадание: ${j.task}\nМой ответ: ${j.answer}\nЭталон: ${j.best}\nДата: ${j.at||''}`).join('\n\n---\n\n');}
+  async function copy(text){try{if(!navigator.clipboard?.writeText)throw Error();await navigator.clipboard.writeText(text);toast('Скопировано');}catch(_){$('copy-text').value=text;$('copy-dialog').showModal();$('copy-text').focus();$('copy-text').select();}}
+  app.addEventListener('click',event=>{
+    const b=event.target.closest('button');if(!b||b.disabled)return;
+    if(b.dataset.theme){settings.theme=b.dataset.theme;applyTheme();save();renderHome();return;}
+    if(b.dataset.level&&availableLevels.includes(b.dataset.level)){settings.level=b.dataset.level;settings.topic='random';save();renderHome();return;}
+    if(b.dataset.mode){settings.mode=b.dataset.mode;save();renderHome();return;}
+    if(b.dataset.speed){settings.speed=Number(b.dataset.speed);save();renderWork();return;}
+    if(b.dataset.historyView){const h=history.find(x=>x.runId===b.dataset.historyView);if(h)renderHistoryEntry(h);return;}
+    if(b.dataset.historyCopy){const h=history.find(x=>x.runId===b.dataset.historyCopy);if(h)copy(dialogueText(h.dialogue,h));return;}
+    switch(b.dataset.action){
+      case 'home':home();break;
+      case 'start':begin();break;
+      case 'resume':viewIndex=Math.min(session.viewIndex??session.index,session.index);variantsOpen=false;if(session.phase==='intro')renderIntro();else if(session.phase==='review')renderReview();else if(session.phase==='done')renderDone();else renderWork();break;
+      case 'intro-next':viewIndex=0;renderWork();break;
+      case 'back':if(viewIndex===0)renderIntro();else{viewIndex--;variantsOpen=false;renderReview();}break;
+      case 'review-back':renderWork();break;
+      case 'show-review':variantsOpen=false;renderReview();break;
+      case 'next':next();break;
+      case 'show-task':view().task=true;save();renderWork();break;
+      case 'toggle-text':view().text=!view().text;if(!view().text)view().translation=false;save();renderWork();break;
+      case 'translation':view().translation=!view().translation;save();renderWork();break;
+      case 'variants':variantsOpen=!variantsOpen;renderReview();break;
+      case 'listen':S.play(current().turns[viewIndex].en,settings.speed,toast);break;
+      case 'listen-ending':S.play(current().ending.en,settings.speed,toast);break;
+      case 'ending-text':$('ending-extra').hidden=!$('ending-extra').hidden;break;
+      case 'replay':{const d=current();settings.mode=session.mode;settings.level=d.level;begin(d.id);break;}
+      case 'copy-all':copy(dialogueText(current(),session));break;
+      case 'history':renderHistory();break;
+      case 'journal':renderHistory('journal');break;
+      case 'copy-journal':copy(journalText());break;
+      case 'copy-entry':{const h=history.find(x=>x.runId===app.dataset.historyId);if(h)copy(dialogueText(h.dialogue,h));break;}
     }
   });
-  app.addEventListener('change', event => {
-    if (event.target.id === 'topic') { settings.topic = event.target.value; selectedId = ''; save(); renderHome(); $('topic').focus(); }
-    if (event.target.id === 'dialogue-choice') selectedId = event.target.value;
-  });
-  app.addEventListener('input', event => { if (event.target.id === 'answer' && session) { session.draft = event.target.value; save(); } });
-  app.addEventListener('submit', event => { if (event.target.id === 'answer-form') { event.preventDefault(); submit(); } });
-  app.addEventListener('keydown', event => { if (event.target.id === 'answer' && event.key === 'Enter' && !event.shiftKey && !event.isComposing && !event.target.readOnly) { event.preventDefault(); submit(); } });
-  $('home-link').addEventListener('click', event => { event.preventDefault(); renderHome(); window.scrollTo(0,0); });
-  $('journal-button').addEventListener('click', () => { renderJournal(); $('journal-dialog').showModal(); });
-  document.querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', () => $(button.dataset.close).close()));
-  $('export-journal').addEventListener('click', exportJournal);
-  $('clear-journal').addEventListener('click', () => { $('clear-confirm').hidden = false; });
-  $('cancel-clear').addEventListener('click', () => { $('clear-confirm').hidden = true; });
-  $('confirm-clear').addEventListener('click', () => { journal = []; save(); renderJournal(); toast('Журнал очищен.'); });
-  if (session) rememberSession();
-  save(); renderHome();
+  app.addEventListener('change',event=>{if(event.target.id==='topic'){const value=event.target.value;settings.topic=value==='random'||dialogues.some(d=>d.level===settings.level&&d.topic===value)?value:'random';save();}});
+  app.addEventListener('input',event=>{if(event.target.id==='answer'&&session&&screen==='work'&&!session.answers[viewIndex]){session.draft=event.target.value;save();const b=$('check-answer');if(b)b.disabled=!session.draft.trim();}});
+  app.addEventListener('submit',event=>{if(event.target.id==='answer-form'){event.preventDefault();submit();}});
+  app.addEventListener('keydown',event=>{if(event.target.id==='answer'&&event.key==='Enter'&&!event.shiftKey&&!event.isComposing&&!event.target.readOnly){event.preventDefault();submit();}});
+  $('home-link').addEventListener('click',event=>{event.preventDefault();home();});$('close-copy').addEventListener('click',()=>$('copy-dialog').close());
+  let baseHeight=window.innerHeight||844;
+  function viewport(){const vv=window.visualViewport,focused=document.activeElement?.id==='answer',height=vv?.height||window.innerHeight||baseHeight;const keyboard=focused&&baseHeight-height>120;if(!keyboard)baseHeight=window.innerHeight||height;document.documentElement.style.setProperty('--app-height',baseHeight+'px');document.documentElement.style.setProperty('--keyboard-gap',keyboard?Math.max(0,baseHeight-height)+'px':'0px');document.body.classList.toggle('keyboard-open',keyboard);}
+  window.addEventListener?.('resize',viewport);window.visualViewport?.addEventListener('resize',viewport);app.addEventListener('focusin',viewport);app.addEventListener('focusout',()=>setTimeout(viewport,100));window.addEventListener?.('pagehide',stop);window.addEventListener?.('beforeunload',stop);
+  applyTheme();viewport();save();renderHome();
 })();
 
 </script>
