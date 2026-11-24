@@ -4,3 +4,6 @@
 @media(min-width:700px){#app{max-height:920px}.site-header{padding-inline:20px}.home{padding:20px 36px}.work-grid{gap:12px}.partner-panel{padding:16px}.english{font-size:25px}}
 @media(max-height:730px){.home{gap:12px}.site-header{height:56px}#app{height:calc(var(--app-height) - 56px - env(safe-area-inset-top));padding-top:10px}.screen{gap:9px}.home .field-label,legend{margin-bottom:5px}.theme-control button{min-height:40px}.home-actions{gap:7px}.home .home-actions button{min-height:46px}.partner-panel{padding:9px;gap:5px}.context{font-size:22px}.speeds button{min-width:34px}.audio-main{gap:5px}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+
+.home{justify-content:flex-start;padding-top:12px}.home-history{margin-top:auto;flex:0 0 auto}.ending-body{padding:20px;display:flex;flex-direction:column;gap:20px;overflow:auto;min-height:0;flex:1}.ending-body>.audio-main{min-height:80px}.ending-body>.partner-controls{margin-top:auto}.ending-screen>.nav{flex-shrink:0}
+@media(max-height:730px){.home{gap:10px}.home legend,.home label[for=voice-choice]{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);margin:0;white-space:nowrap}}

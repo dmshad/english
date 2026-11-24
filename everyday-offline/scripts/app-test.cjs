@@ -4,7 +4,7 @@ const KEY='everyday-offline-v1';let checks=0;const ok=(v,m)=>{assert.ok(v,m);che
 function setup(initial,blocked=false){
   const elements=new Map(),store=new Map(initial?[[KEY,initial]]:[]),plays=[],vars={};
   function el(id){if(!elements.has(id))elements.set(id,{id,value:'',innerHTML:'',textContent:'',hidden:false,dataset:{},disabled:false,handlers:{},addEventListener(n,f){this.handlers[n]=f;},focus(){},blur(){},select(){},showModal(){this.open=true;},close(){this.open=false;},setAttribute(){}});return elements.get(id);}
-  const synth={getVoices:()=>[{name:'Local US',lang:'en-US',localService:true}],cancel(){},speak(u){plays.push(u);},addEventListener(){}};
+  const synth={getVoices:()=>[{name:'Ava (Premium)',voiceURI:'com.apple.voice.premium.en-US.Ava',lang:'en-US',localService:true}],cancel(){},speak(u){plays.push(u);},addEventListener(){}};
   const window={innerHeight:844,scrollTo(){},addEventListener(){},speechSynthesis:synth,SpeechSynthesisUtterance:class{constructor(text){this.text=text;}}};
   const document={getElementById:el,querySelector:()=>el('meta'),activeElement:null,documentElement:{dataset:{},style:{setProperty(k,v){vars[k]=v;}}},body:{classList:{toggle(){}}}};
   const context=vm.createContext({window,document,localStorage:{getItem(k){if(blocked)throw Error();return store.get(k)||null;},setItem(k,v){if(blocked)throw Error();store.set(k,v);}},navigator:{},console,setTimeout:()=>1,clearTimeout(){}});
@@ -15,7 +15,7 @@ function setup(initial,blocked=false){
   const answer=text=>{type(text);el('app').handlers.submit({target:{id:'answer-form'},preventDefault(){}});};
   const all=window.DIALOGUES.filter(d=>d.checking==='construction');
   const start=(d,mode='text')=>{click({action:'home'});click({mode});change('topic',d.topic);click({action:'start'});};
-  const finish=d=>{for(const t of d.turns){if(state().session.mode==='speech')click({action:'show-task'});answer(t.best);click({action:'next'});}};
+  const finish=d=>{for(const t of d.turns){if(state().session.phase==='stage')click({action:'stage-next'});if(state().session.mode==='speech')click({action:'show-task'});answer(t.best);click({action:'next'});}click({action:'ending-next'});};
   const state=()=>JSON.parse(store.get(KEY));
   return {el,store,state,click,change,type,answer,all,start,finish,plays,window,document,html:()=>el('app').innerHTML};
 }
@@ -28,7 +28,7 @@ ui.answer(d.turns[0].best);eq(ui.state().session.answers[0].status,'correct');eq
 ui.click({action:'variants'});ok(ui.html().includes('class="variants"'));ok((ui.html().match(/<li>/g)||[]).length<=10);
 ui.click({action:'next'});ui.type('A draft');ui.click({action:'back'});eq(ui.state().session.viewIndex,0);eq(ui.state().session.phase,'review');ui.click({action:'review-back'});ok(ui.html().includes('readonly'));ui.click({action:'back'});eq(ui.state().session.phase,'intro');ui.click({action:'intro-next'});ui.click({action:'show-review'});ui.click({action:'next'});ok(ui.html().includes('A draft'));eq(ui.state().session.index,1);eq(ui.state().session.answers.length,1);
 const restored=setup(ui.store.get(KEY));restored.click({action:'resume'});ok(restored.html().includes('A draft'));
-for(const t of d.turns.slice(1)){restored.answer(t.best);restored.click({action:'next'});}eq(restored.state().completionCounts.text[d.id],1);eq(restored.state().session.phase,'done');restored.click({action:'next'});eq(restored.state().completionCounts.text[d.id],1);
+for(const t of d.turns.slice(1)){if(restored.state().session.phase==='stage')restored.click({action:'stage-next'});restored.answer(t.best);restored.click({action:'next'});}restored.click({action:'ending-next'});eq(restored.state().completionCounts.text[d.id],1);eq(restored.state().session.phase,'done');restored.click({action:'next'});eq(restored.state().completionCounts.text[d.id],1);
 restored.click({action:'copy-all'});ok(restored.el('copy-text').value.includes(d.ending.en));ok(restored.el('copy-dialog').open);
 restored.click({action:'replay'});eq(restored.state().session.phase,'intro');restored.click({action:'intro-next'});restored.finish(d);eq(restored.state().completionCounts.text[d.id],1);eq(new Set(restored.state().history.map(h=>h.runId)).size,2);
 // Speech starts with both texts absent and remains a separately counted mode.
@@ -39,7 +39,7 @@ audio.click({action:'toggle-text'});ok(audio.html().includes(d.turns[0].en));ok(
 // Replays remain one counted completion even across several repeats and reloads.
 const repeat=setup(restored.store.get(KEY));repeat.click({action:'resume'});repeat.click({action:'replay'});eq(repeat.state().session.practiceReplay,true);repeat.click({action:'intro-next'});
 for(const t of d.turns.slice(0,3)){repeat.answer(t.best);repeat.click({action:'next'});}
-const resumedRepeat=setup(repeat.store.get(KEY));resumedRepeat.click({action:'resume'});for(const t of d.turns.slice(3)){resumedRepeat.answer(t.best);resumedRepeat.click({action:'next'});}
+const resumedRepeat=setup(repeat.store.get(KEY));resumedRepeat.click({action:'resume'});for(const t of d.turns.slice(3)){if(resumedRepeat.state().session.phase==='stage')resumedRepeat.click({action:'stage-next'});resumedRepeat.answer(t.best);resumedRepeat.click({action:'next'});}resumedRepeat.click({action:'ending-next'});
 eq(resumedRepeat.state().completionCounts.text[d.id],1);eq(resumedRepeat.state().session.completedRecorded,true);ok(resumedRepeat.state().history.at(-1).practiceReplay);
 resumedRepeat.click({action:'replay'});resumedRepeat.click({action:'intro-next'});resumedRepeat.finish(d);eq(resumedRepeat.state().completionCounts.text[d.id],1);
 resumedRepeat.start(d);resumedRepeat.click({action:'intro-next'});resumedRepeat.finish(d);eq(resumedRepeat.state().completionCounts.text[d.id],2);eq(resumedRepeat.state().session.practiceReplay,false);
@@ -64,5 +64,19 @@ const error=setup();error.start(d);error.click({action:'intro-next'});error.answ
 const injection=setup();injection.start(d);injection.click({action:'intro-next'});injection.answer('<img src=x onerror=alert(1)>');ok(!injection.html().includes('<img src=x'));ok(injection.html().includes('&lt;'));
 const broken=setup('{bad');ok(broken.html().includes('Начать диалог'));const unavailable=setup(null,true);ok(unavailable.html().includes('Сохранение недоступно'));
 // Only local English voices are selected; rate choices never request a remote voice.
-const speech=setup();speech.window.speechSynthesis.getVoices=()=>[{lang:'en-US',localService:false}];let message='';eq(speech.window.OfflineSpeech.play('Hello',5,t=>message=t),false);ok(message);speech.window.speechSynthesis.getVoices=()=>[{lang:'en-GB',localService:true},{lang:'en-US',localService:true}];speech.window.OfflineSpeech.play('Hello',3);eq(speech.plays.at(-1).voice.lang,'en-US');eq(speech.plays.at(-1).rate,.8);
+const speech=setup();speech.window.speechSynthesis.getVoices=()=>[{lang:'en-US',localService:false}];let message='';eq(speech.window.OfflineSpeech.play('Hello',5,t=>message=t),false);ok(message);speech.window.speechSynthesis.getVoices=()=>[{lang:'en-GB',localService:true},{lang:'en-US',localService:true}];speech.window.OfflineSpeech.play('Hello',3);eq(speech.plays.at(-1).lang,'en');eq(speech.plays.at(-1).voice,undefined);eq(speech.plays.at(-1).rate,1);
+// Scene pages and the unanswered final line are independent steps, with resumable navigation.
+const scene=setup();scene.start(d);scene.click({action:'intro-next'});
+for(const t of d.turns.slice(0,3)){scene.answer(t.best);scene.click({action:'next'});}
+eq(scene.state().session.phase,'stage');ok(scene.html().includes(d.turns[3].stage));ok(!scene.html().includes('id="answer"'));ok(!scene.html().includes(d.turns[3].en));
+scene.click({action:'stage-back'});eq(scene.state().session.viewIndex,2);scene.click({action:'next'});eq(scene.state().session.phase,'stage');scene.click({action:'stage-next'});eq(scene.state().session.phase,'work');ok(!scene.html().includes(d.turns[3].stage));scene.click({action:'back'});eq(scene.state().session.phase,'stage');
+const last=setup();last.start(d);last.click({action:'intro-next'});for(const t of d.turns){if(last.state().session.phase==='stage')last.click({action:'stage-next'});last.answer(t.best);last.click({action:'next'});}
+eq(last.state().session.phase,'ending');eq(last.state().completionCounts.text[d.id]||0,0);eq(last.state().session.completedRecorded,false);ok(last.html().includes(d.ending.en));ok(!last.html().includes('class="stats"'));ok(!last.html().includes('id="answer"'));
+const lastReload=setup(last.store.get(KEY));ok(lastReload.html().includes('data-action="resume"'));lastReload.click({action:'resume'});eq(lastReload.state().session.phase,'ending');eq(lastReload.state().session.completedRecorded,false);lastReload.click({action:'ending-back'});eq(lastReload.state().session.phase,'review');lastReload.click({action:'next'});eq(lastReload.state().session.phase,'ending');lastReload.click({action:'ending-next'});eq(lastReload.state().completionCounts.text[d.id],1);ok(!lastReload.html().includes(d.ending.en));lastReload.click({action:'ending-next'});eq(lastReload.state().completionCounts.text[d.id],1);
+// Default normal rate migrates from the former fifth slot to the middle slot.
+eq(setup().state().settings.speed,3);eq(setup(JSON.stringify({settings:{speed:5}})).state().settings.speed,3);eq(setup(JSON.stringify({settings:{speed:5,speedScale:2}})).state().settings.speed,5);
+const av=setup();eq(av.state().settings.voiceURI,'com.apple.voice.premium.en-US.Ava');av.window.OfflineSpeech.play('Hello',3,()=>{},av.state().settings.voiceURI);eq(av.plays.at(-1).voice.name,'Ava (Premium)');eq(av.plays.at(-1).rate,1);
+av.window.speechSynthesis.getVoices=()=>[{name:'Ava',voiceURI:'com.apple.voice.compact.en-US.Ava',lang:'en-US',localService:true}];let noPremium='';eq(av.window.OfflineSpeech.play('Hello',3,t=>noPremium=t,'@ava-premium'),false);ok(noPremium.includes('Premium'));
+av.window.speechSynthesis.getVoices=()=>[{name:'Other',voiceURI:'other',lang:'en-US',localService:true},{name:'Ava',voiceURI:'com.apple.voice.premium.en-US.Ava',lang:'en-US',localService:true}];eq(av.window.OfflineSpeech.voice('@ava-premium').voiceURI,'com.apple.voice.premium.en-US.Ava');av.window.OfflineSpeech.play('Hello',5,()=>{},'@ava-premium');eq(av.plays.at(-1).rate,1.4);
+const homeOrder=setup().html();ok(homeOrder.indexOf('data-action="history"')>homeOrder.indexOf('data-action="start"'));
 console.log(`${checks} application-state checks passed (mock DOM; real-browser suite is separate).`);

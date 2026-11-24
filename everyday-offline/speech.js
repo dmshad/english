@@ -1,17 +1,22 @@
-/* Browser/device speech only. Never select a voice advertised as a remote service. */
+/* Device speech. Automatic mode delegates to the system when all English voices are local. */
 (function(root){
-  const rates=[0.6,0.7,0.8,0.9,1];let current=null;
+  const rates=[0.6,0.8,1,1.2,1.4];let current=null;
   function voices(){try{return root.speechSynthesis?.getVoices()||[];}catch(_){return [];}}
-  function voice(){return voices().filter(v=>/^en(?:[-_]|$)/i.test(v.lang)&&v.localService===true).sort((a,b)=>Number(/^en[-_]US$/i.test(b.lang))-Number(/^en[-_]US$/i.test(a.lang))||Number(b.default)-Number(a.default))[0];}
-  function stop(){if(root.speechSynthesis)root.speechSynthesis.cancel();current=null;}
-  function play(text,speed,onError){
-    stop();const selected=voice();
-    if(!root.speechSynthesis||!root.SpeechSynthesisUtterance||!selected){onError?.('Английский голос недоступен');return false;}
-    const utterance=new root.SpeechSynthesisUtterance(text);utterance.voice=selected;utterance.lang=selected.lang;utterance.rate=rates[speed-1]||1;
+  const english=v=>/^en(?:[-_]|$)/i.test(v.lang),key=v=>v.voiceURI||`${v.name}::${v.lang}`;
+  function localVoices(){return voices().filter(v=>english(v)&&v.localService===true);}
+  function voice(preferred=''){const local=localVoices();if(preferred==='@ava-premium')return local.find(v=>/\bava\b/i.test(v.name+' '+v.voiceURI)&&/premium/i.test(v.name+' '+v.voiceURI));return preferred?local.find(v=>key(v)===preferred):local.find(v=>v.default)||local.find(v=>/^en[-_]US$/i.test(v.lang))||local[0];}
+  function stop(){root.speechSynthesis?.cancel();current=null;}
+  function play(text,speed,onError,preferred=''){
+    stop();const selected=voice(preferred);
+    if(!root.speechSynthesis||!root.SpeechSynthesisUtterance||!selected){onError?.(preferred==='@ava-premium'?'Ava (Premium) недоступен':preferred?'Выбранный голос недоступен':'Английский голос недоступен');return false;}
+    const utterance=new root.SpeechSynthesisUtterance(text);
+    // Safari can mark every voice default; do not infer an iOS accessibility preference from that flag.
+    const systemDefault=!preferred&&voices().filter(english).every(v=>v.localService===true);
+    if(!systemDefault)utterance.voice=selected;
+    utterance.lang=systemDefault?'en':selected.lang;utterance.rate=rates[speed-1]||1;
     utterance.onerror=e=>{if(current===utterance){current=null;if(!['canceled','interrupted'].includes(e.error))onError?.('Не удалось воспроизвести');}};
     utterance.onend=()=>{if(current===utterance)current=null;};current=utterance;root.speechSynthesis.speak(utterance);return true;
   }
-  // Prime asynchronously loaded voice inventories without auto-playing audio.
   voices();root.speechSynthesis?.addEventListener?.('voiceschanged',voices);
-  root.OfflineSpeech={rates,play,stop,voice};
+  root.OfflineSpeech={rates,play,stop,voice,localVoices,key};
 })(typeof window!=='undefined'?window:globalThis);
