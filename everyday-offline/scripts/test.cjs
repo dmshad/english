@@ -113,3 +113,5 @@ require('./pilot-test.cjs');
 
 require('./batch-test.cjs');
 require('./batch-independent-test.cjs');
+
+require('./update-test.cjs');

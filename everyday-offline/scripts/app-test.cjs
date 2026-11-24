@@ -3,12 +3,12 @@ const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),asse
 const KEY='everyday-offline-v1';let checks=0;const ok=(v,m)=>{assert.ok(v,m);checks++;},eq=(a,b,m)=>{assert.equal(a,b,m);checks++;};
 function setup(initial,blocked=false){
   const elements=new Map(),store=new Map(initial?[[KEY,initial]]:[]),plays=[],vars={};
-  function el(id){if(!elements.has(id))elements.set(id,{id,value:'',innerHTML:'',textContent:'',hidden:false,dataset:{},disabled:false,handlers:{},addEventListener(n,f){this.handlers[n]=f;},focus(){},blur(){},select(){},showModal(){this.open=true;},close(){this.open=false;},setAttribute(){}});return elements.get(id);}
+  function el(id){if(!elements.has(id))elements.set(id,{id,value:'',innerHTML:'',textContent:'',hidden:false,dataset:{},disabled:false,handlers:{},addEventListener(n,f){this.handlers[n]=f;},focus(){},blur(){},select(){},showModal(){this.open=true;},close(){this.open=false;},setAttribute(){},removeAttribute(){}});return elements.get(id);}
   const synth={getVoices:()=>[{name:'Ava (Premium)',voiceURI:'com.apple.voice.premium.en-US.Ava',lang:'en-US',localService:true}],cancel(){},speak(u){plays.push(u);},addEventListener(){}};
   const window={innerHeight:844,scrollTo(){},addEventListener(){},speechSynthesis:synth,SpeechSynthesisUtterance:class{constructor(text){this.text=text;}}};
   const document={getElementById:el,querySelector:()=>el('meta'),activeElement:null,documentElement:{dataset:{},style:{setProperty(k,v){vars[k]=v;}}},body:{classList:{toggle(){}}}};
   const context=vm.createContext({window,document,localStorage:{getItem(k){if(blocked)throw Error();return store.get(k)||null;},setItem(k,v){if(blocked)throw Error();store.set(k,v);}},navigator:{},console,setTimeout:()=>1,clearTimeout(){}});
-  for(const f of ['engine.js','content.js','content-stage1.js','content-ten.js','content-answers.js','structured.js','content-pilot.js','content-friend.js','content-library.js','content-intros.js','content-batch-a.js','content-batch-b.js','progress.js','speech.js','app.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'..',f),'utf8'),context);
+  for(const f of ['engine.js','content.js','content-stage1.js','content-ten.js','content-answers.js','structured.js','content-pilot.js','content-friend.js','content-library.js','content-intros.js','content-batch-a.js','content-batch-b.js','progress.js','speech.js','update.js','app.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'..',f),'utf8'),context);
   const click=data=>el('app').handlers.click({target:{closest:()=>({dataset:data,disabled:false})}});
   const change=(id,value)=>el('app').handlers.change({target:{id,value}});
   const type=text=>{el('answer').value=text;el('app').handlers.input({target:{id:'answer',value:text}});};

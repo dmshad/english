@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-visual">
   <meta name="theme-color" content="#f5f7fb">
+  <meta name="application-version" content="0.12.1">
   <title>Everyday</title>
   <style>
 :root{color-scheme:light;--bg:#f5f7fb;--panel:#fff;--soft:#eaf0f4;--ink:#192a37;--muted:#536370;--line:#dce3e9;--accent:#166c58;--accent-soft:#e7f2ed;--green:#126048;--green-bg:#def0e5;--yellow:#805000;--yellow-bg:#fff0ba;--red:#9c201d;--red-bg:#ffdcd9;--gray:#536370;--gray-bg:#e9edf2;--app-height:100svh;font:20px/1.4 ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
@@ -16,12 +17,14 @@
 .home{justify-content:flex-start;padding-top:12px}.home-history{margin-top:auto;flex:0 0 auto}.ending-body{padding:20px;display:flex;flex-direction:column;gap:20px;overflow:auto;min-height:0;flex:1}.ending-body>.audio-main{min-height:80px}.ending-body>.partner-controls{margin-top:auto}.ending-screen>.nav{flex-shrink:0}
 @media(max-height:730px){.home{gap:10px}.home legend,.home label[for=voice-choice]{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);margin:0;white-space:nowrap}}
 
+button.version{border:0;background:transparent;padding:6px 4px;min-width:64px;min-height:44px;font-size:16px;color:var(--muted);border-radius:8px}button.version[aria-busy=true]{opacity:.55}
+
 </style>
 </head>
 <body>
   <header class="site-header">
     <a href="#" id="home-link" class="brand" aria-label="Everyday — на главную"><span class="brand-mark" aria-hidden="true">e.</span>everyday</a>
-    <span class="version">v0.12</span>
+    <button type="button" id="update-version" class="version" aria-label="Проверить обновления">v0.12.1</button>
   </header>
   <main id="app"></main>
   <div id="toast" role="status" class="toast" hidden></div>
@@ -2135,9 +2138,35 @@ root.DIALOGUES.find(d=>d.id==='batch-bus').turns[8].assessment.cases.error.push(
 
 </script>
   <script>
+/* User-triggered update check. Normal offline practice never accesses the network. */
+(function(root){
+  function newer(remote,current){
+    if(!/^\d+(?:\.\d+)*$/.test(remote)||!/^\d+(?:\.\d+)*$/.test(current))return false;
+    const a=remote.split('.').map(Number),b=current.split('.').map(Number);
+    for(let i=0;i<Math.max(a.length,b.length);i++){if((a[i]||0)!==(b[i]||0))return (a[i]||0)>(b[i]||0);}return false;
+  }
+  async function check(href,current,online=true,request=root.fetch?.bind(root)){
+    const url=new URL(href);
+    if(!['http:','https:'].includes(url.protocol))return {status:'file'};
+    if(!online)return {status:'offline'};
+    url.searchParams.set('update',String(Date.now()));
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),10000);
+    try{
+      const response=await request(url.href,{cache:'no-store',credentials:'same-origin',signal:controller.signal});
+      if(!response.ok)throw Error('Update unavailable');
+      const html=await response.text(),match=html.match(/<meta\s+name=["']application-version["']\s+content=["']([\d.]+)["']\s*\/?\s*>/i);
+      if(!match)throw Error('Missing application version');
+      return newer(match[1],current)?{status:'available',version:match[1],url:url.href}:{status:'current'};
+    }catch(_){return {status:'error'};}finally{clearTimeout(timer);}
+  }
+  root.OfflineUpdate={check,newer};
+})(typeof window!=='undefined'?window:globalThis);
+
+</script>
+  <script>
 (function(){
   'use strict';
-  window.APP_VERSION='0.12';
+  window.APP_VERSION='0.12.1';
   const $=id=>document.getElementById(id),app=$('app'),E=window.OfflineEngine,P=window.OfflineProgress,S=window.OfflineSpeech;
   const dialogues=window.DIALOGUES.filter(d=>d.checking==='construction'),KEY='everyday-offline-v1';
   const statusNames={correct:'Верно',acceptable:'Понятно, но обычно так не говорят или неуместно в этой ситуации',error:'Ошибка',unknown:'Не определено',revealed:'Не определено'};
@@ -2264,6 +2293,18 @@ root.DIALOGUES.find(d=>d.id==='batch-bus').turns[8].assessment.cases.error.push(
   app.addEventListener('input',event=>{if(event.target.id==='answer'&&session&&screen==='work'&&!session.answers[viewIndex]){session.draft=event.target.value;save();const b=$('check-answer');if(b)b.disabled=!session.draft.trim();}});
   app.addEventListener('submit',event=>{if(event.target.id==='answer-form'){event.preventDefault();submit();}});
   app.addEventListener('keydown',event=>{if(event.target.id==='answer'&&event.key==='Enter'&&!event.shiftKey&&!event.isComposing&&!event.target.readOnly){event.preventDefault();submit();}});
+  $('update-version').addEventListener('click',async()=>{
+    const button=$('update-version');if(button.disabled)return;
+    button.disabled=true;button.setAttribute('aria-busy','true');save();
+    try{
+      const result=await window.OfflineUpdate.check(window.location.href,window.APP_VERSION,navigator.onLine!==false);
+      if(result.status==='available'){
+        save();if(!persistent){toast('Не удалось сохранить прогресс');return;}
+        stop();window.location.assign(result.url);return;
+      }
+      toast({current:'Обновлений нет',file:'Для обновления скачай новый index.html',offline:'Нет подключения к интернету',error:'Не удалось проверить обновление'}[result.status]);
+    }finally{button.disabled=false;button.removeAttribute('aria-busy');}
+  });
   $('home-link').addEventListener('click',event=>{event.preventDefault();home();});$('close-copy').addEventListener('click',()=>$('copy-dialog').close());
   let baseHeight=window.innerHeight||844;
   function viewport(){const vv=window.visualViewport,focused=document.activeElement?.id==='answer',height=vv?.height||window.innerHeight||baseHeight;const keyboard=focused&&baseHeight-height>120;if(!keyboard)baseHeight=window.innerHeight||height;document.documentElement.style.setProperty('--app-height',baseHeight+'px');document.documentElement.style.setProperty('--keyboard-gap',keyboard?Math.max(0,baseHeight-height)+'px':'0px');document.body.classList.toggle('keyboard-open',keyboard);}

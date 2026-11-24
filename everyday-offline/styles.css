@@ -7,3 +7,5 @@
 
 .home{justify-content:flex-start;padding-top:12px}.home-history{margin-top:auto;flex:0 0 auto}.ending-body{padding:20px;display:flex;flex-direction:column;gap:20px;overflow:auto;min-height:0;flex:1}.ending-body>.audio-main{min-height:80px}.ending-body>.partner-controls{margin-top:auto}.ending-screen>.nav{flex-shrink:0}
 @media(max-height:730px){.home{gap:10px}.home legend,.home label[for=voice-choice]{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);margin:0;white-space:nowrap}}
+
+button.version{border:0;background:transparent;padding:6px 4px;min-width:64px;min-height:44px;font-size:16px;color:var(--muted);border-radius:8px}button.version[aria-busy=true]{opacity:.55}

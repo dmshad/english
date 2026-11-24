@@ -1,6 +1,6 @@
 (function(){
   'use strict';
-  window.APP_VERSION='0.12';
+  window.APP_VERSION='0.12.1';
   const $=id=>document.getElementById(id),app=$('app'),E=window.OfflineEngine,P=window.OfflineProgress,S=window.OfflineSpeech;
   const dialogues=window.DIALOGUES.filter(d=>d.checking==='construction'),KEY='everyday-offline-v1';
   const statusNames={correct:'Верно',acceptable:'Понятно, но обычно так не говорят или неуместно в этой ситуации',error:'Ошибка',unknown:'Не определено',revealed:'Не определено'};
@@ -127,6 +127,18 @@
   app.addEventListener('input',event=>{if(event.target.id==='answer'&&session&&screen==='work'&&!session.answers[viewIndex]){session.draft=event.target.value;save();const b=$('check-answer');if(b)b.disabled=!session.draft.trim();}});
   app.addEventListener('submit',event=>{if(event.target.id==='answer-form'){event.preventDefault();submit();}});
   app.addEventListener('keydown',event=>{if(event.target.id==='answer'&&event.key==='Enter'&&!event.shiftKey&&!event.isComposing&&!event.target.readOnly){event.preventDefault();submit();}});
+  $('update-version').addEventListener('click',async()=>{
+    const button=$('update-version');if(button.disabled)return;
+    button.disabled=true;button.setAttribute('aria-busy','true');save();
+    try{
+      const result=await window.OfflineUpdate.check(window.location.href,window.APP_VERSION,navigator.onLine!==false);
+      if(result.status==='available'){
+        save();if(!persistent){toast('Не удалось сохранить прогресс');return;}
+        stop();window.location.assign(result.url);return;
+      }
+      toast({current:'Обновлений нет',file:'Для обновления скачай новый index.html',offline:'Нет подключения к интернету',error:'Не удалось проверить обновление'}[result.status]);
+    }finally{button.disabled=false;button.removeAttribute('aria-busy');}
+  });
   $('home-link').addEventListener('click',event=>{event.preventDefault();home();});$('close-copy').addEventListener('click',()=>$('copy-dialog').close());
   let baseHeight=window.innerHeight||844;
   function viewport(){const vv=window.visualViewport,focused=document.activeElement?.id==='answer',height=vv?.height||window.innerHeight||baseHeight;const keyboard=focused&&baseHeight-height>120;if(!keyboard)baseHeight=window.innerHeight||height;document.documentElement.style.setProperty('--app-height',baseHeight+'px');document.documentElement.style.setProperty('--keyboard-gap',keyboard?Math.max(0,baseHeight-height)+'px':'0px');document.body.classList.toggle('keyboard-open',keyboard);}
