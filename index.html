@@ -2236,7 +2236,7 @@ root.DIALOGUES.find(d=>d.id==='batch-bus').turns[8].assessment.cases.error.push(
     session={id:d.id,mode:'text',unified:true,contentRevision:window.CONTENT_REVISION,index:0,answers:[],draft:'',views:{},runId:runId(),startedAt:new Date().toISOString(),completedRecorded:false,practiceReplay,phase:'intro'};viewIndex=0;contentUpdated=false;save();renderIntro();
   }
   function resultCounts(answers){return Object.fromEntries(['correct','acceptable','error','unknown'].map(k=>[k,answers.filter(a=>a.status===k||(k==='unknown'&&a.status==='revealed')).length]));}
-  function recordResult(h){const old=latestResults[h.dialogue.id];if(!old||h.updatedAt>=old.updatedAt)latestResults[h.dialogue.id]={runId:h.runId,updatedAt:h.updatedAt,counts:resultCounts(h.answers)};}
+  function recordResult(h){const old=latestResults[h.dialogue.id],updatedAt=typeof h.updatedAt==='string'?h.updatedAt:typeof h.startedAt==='string'?h.startedAt:'';if(!old||updatedAt>=old.updatedAt)latestResults[h.dialogue.id]={runId:h.runId,updatedAt,counts:resultCounts(h.answers)};}
   function renderCatalog(){
     stop();const topics=[...new Map(choices().map(d=>[d.topic,d.topicLabel.replace(/ · пилот$/,'')])).entries()];
     page('catalog',`<section class="screen">${top('Выбрать диалог')}${levels()}<div class="list-scroll catalog-list">${topics.map(([topic,label])=>`<section class="catalog-topic"><h2>${esc(label)}</h2>${choices().filter(d=>d.topic===topic).map(d=>`<div class="catalog-row"><button type="button" class="completion-dot ${P.count(completionCounts[d.id])?'completed':''}" data-mark="${esc(d.id)}" aria-label="${esc(d.title)}: ${P.count(completionCounts[d.id])?'пройден':'не пройден'}. Изменить отметку" aria-pressed="${Boolean(P.count(completionCounts[d.id]))}"></button><button type="button" class="dialogue-choice" data-dialogue="${esc(d.id)}">${esc(d.title)}</button></div>`).join('')}</section>`).join('')}</div><button type="button" data-action="home">Назад</button></section>`);
@@ -2247,7 +2247,7 @@ root.DIALOGUES.find(d=>d.id==='batch-bus').turns[8].assessment.cases.error.push(
   }
   function askMark(id){const d=dialogues.find(d=>d.id===id);if(!d)return;pendingMark={id,completed:!P.count(completionCounts[id])};$('mark-title').textContent=pendingMark.completed?'Отметить диалог пройденным?':'Отметить диалог непройденным?';$('mark-name').textContent=d.title;$('mark-dialog').showModal();}
   $('cancel-mark').addEventListener('click',()=>{pendingMark=null;$('mark-dialog').close();});
-  $('mark-dialog').addEventListener('close',()=>{pendingMark=null;});
+  $('mark-dialog').addEventListener('close',()=>{if(!$('mark-dialog').open)pendingMark=null;});
   $('mark-dialog').addEventListener('cancel',()=>{pendingMark=null;});
   $('confirm-mark').addEventListener('click',()=>{if(!pendingMark)return;const {id,completed}=pendingMark;completionCounts[id]=completed?Math.max(1,P.count(completionCounts[id])):0;pendingMark=null;save();$('mark-dialog').close();renderCatalog();});
   async function exportJournal(){
@@ -2260,7 +2260,7 @@ root.DIALOGUES.find(d=>d.id==='batch-bus').turns[8].assessment.cases.error.push(
     const field=$('copy-text');if(field.selectionStart!==0||field.selectionEnd!==field.value.length)return;
     event.clipboardData.setData('text/plain',field.value);event.preventDefault();const batch=pendingCopyBatch;pendingCopyBatch=null;removeCopied(batch);$('copy-dialog').close();toast('Скопировано');
   });
-  $('copy-dialog').addEventListener('close',()=>{pendingCopyBatch=null;});
+  $('copy-dialog').addEventListener('close',()=>{if(!$('copy-dialog').open)pendingCopyBatch=null;});
   function renderIntro(){stop();setPhase('intro');const d=current();page('intro',`<section class="screen intro"><div class="intro-body"><h1>${esc(d.title)}</h1><p class="context">${esc(d.context)}</p></div>${nav('home','Дальше','intro-next')}</section>`);}
   function openTurn(){if(viewIndex>=current().turns.length)return renderEnding();current().turns[viewIndex].stage?renderStage():renderWork();}
   function renderStage(){stop();const d=current(),stage=d.turns[viewIndex]?.stage;if(!stage)return renderWork();setPhase('stage');page('stage',`<section class="screen intro stage-screen"><div class="intro-body"><p class="context">${esc(stage)}</p></div>${nav('stage-back','Дальше','stage-next')}</section>`);}
