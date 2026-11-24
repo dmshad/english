@@ -1,6 +1,6 @@
 /* Device speech. Automatic mode delegates to the system when all English voices are local. */
 (function(root){
-  const rates=[0.6,0.8,1,1.2,1.4];let current=null;
+  let current=null;
   function voices(){try{return root.speechSynthesis?.getVoices()||[];}catch(_){return [];}}
   const english=v=>/^en(?:[-_]|$)/i.test(v.lang),key=v=>v.voiceURI||`${v.name}::${v.lang}`;
   function localVoices(){return voices().filter(v=>english(v)&&v.localService===true);}
@@ -13,10 +13,10 @@
     // Safari can mark every voice default; do not infer an iOS accessibility preference from that flag.
     const systemDefault=!preferred&&voices().filter(english).every(v=>v.localService===true);
     if(!systemDefault)utterance.voice=selected;
-    utterance.lang=systemDefault?'en':selected.lang;utterance.rate=rates[speed-1]||1;
+    utterance.lang=systemDefault?'en':selected.lang;utterance.rate=1;
     utterance.onerror=e=>{if(current===utterance){current=null;if(!['canceled','interrupted'].includes(e.error))onError?.('Не удалось воспроизвести');}};
     utterance.onend=()=>{if(current===utterance)current=null;};current=utterance;root.speechSynthesis.speak(utterance);return true;
   }
   voices();root.speechSynthesis?.addEventListener?.('voiceschanged',voices);
-  root.OfflineSpeech={rates,play,stop,voice,localVoices,key};
+  root.OfflineSpeech={play,stop,voice,localVoices,key};
 })(typeof window!=='undefined'?window:globalThis);

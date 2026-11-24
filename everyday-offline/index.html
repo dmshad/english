@@ -4,20 +4,24 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-visual">
   <meta name="theme-color" content="#f5f7fb">
-  <meta name="application-version" content="0.12.1">
+  <meta name="application-version" content="0.13">
   <title>Everyday</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <header class="site-header">
     <a href="#" id="home-link" class="brand" aria-label="Everyday — на главную"><span class="brand-mark" aria-hidden="true">e.</span>everyday</a>
-    <button type="button" id="update-version" class="version" aria-label="Проверить обновления">v0.12.1</button>
+    <button type="button" id="update-version" class="version" aria-label="Проверить обновления">v0.13</button>
   </header>
   <main id="app"></main>
   <div id="toast" role="status" class="toast" hidden></div>
   <dialog id="copy-dialog" aria-labelledby="copy-title">
     <div class="dialog-head"><h2 id="copy-title">Копирование</h2><button type="button" id="close-copy" aria-label="Закрыть">×</button></div>
     <textarea id="copy-text" readonly aria-label="Текст для копирования"></textarea>
+  </dialog>
+  <dialog id="mark-dialog" aria-labelledby="mark-title" aria-describedby="mark-name">
+    <h2 id="mark-title"></h2><p id="mark-name"></p>
+    <div class="nav"><button type="button" id="cancel-mark" autofocus>Отмена</button><button type="button" class="primary" id="confirm-mark">Подтвердить</button></div>
   </dialog>
   <script src="engine.js"></script>
   <script src="content.js"></script>
