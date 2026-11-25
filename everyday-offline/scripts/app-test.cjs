@@ -61,6 +61,21 @@ const unknown=setup();for(let i=0;i<7;i++){unknown.start(d);unknown.click({actio
 eq(unknown.state().history.length,6);eq(unknown.state().journal.length,7);unknown.click({action:'journal'});unknown.click({action:'copy-journal'});ok(unknown.el('copy-text').value.includes('An unusual unrecognized sentence 0'));ok(unknown.el('copy-text').value.includes(d.context));
 unknown.click({action:'home'});ok(!unknown.html().includes('id="topic"'));
 const error=setup();error.start(d);error.click({action:'intro-next'});error.answer('I need a comfortable shoes');eq(error.state().session.answers[0].status,'error');ok(error.html().includes('word-error'));ok(error.html().includes('Shoes'));
+// An unknown fragment owns the aggregate score even when another fragment is red.
+const fragmented=setup(),hotel=fragmented.all.find(d=>d.id==='batch-hotel');
+fragmented.start(hotel);fragmented.click({action:'intro-next'});
+const original='  I has a reservation under Anna. Blorven.  ';
+fragmented.answer(original);
+const fragmentedState=fragmented.state(),fragmentedAnswer=fragmentedState.session.answers[0];
+eq(fragmentedAnswer.answer,original);eq(fragmentedAnswer.status,'unknown');eq(fragmentedState.journal[0].answer,original);
+eq(fragmentedAnswer.annotations.find(t=>t.text==='has').color,'error');
+eq(fragmentedAnswer.annotations.find(t=>t.text==='reservation').color,'correct');
+eq(fragmentedAnswer.annotations.find(t=>t.text==='Blorven').color,'neutral');
+ok(fragmented.html().includes('С I нужно have.'));ok(fragmented.html().includes('class="status unknown">Не распознано'));
+eq(fragmentedState.latestResults[hotel.id].counts.unknown,1);eq(fragmentedState.latestResults[hotel.id].counts.error,0);
+const fragmentedReload=setup(fragmented.store.get(KEY));
+fragmentedReload.click({historyView:fragmentedState.history[0].runId});
+for(const color of ['correct','error','neutral'])ok(fragmentedReload.html().includes('word-'+color));
 const injection=setup();injection.start(d);injection.click({action:'intro-next'});injection.answer('<img src=x onerror=alert(1)>');ok(!injection.html().includes('<img src=x'));ok(injection.html().includes('&lt;'));
 const broken=setup('{bad');ok(broken.html().includes('Начать следующий диалог'));const unavailable=setup(null,true);ok(unavailable.html().includes('Сохранение недоступно'));
 // Only local English voices are selected; rate choices never request a remote voice.

@@ -26,3 +26,31 @@ for(const d of batch){
 }
 if(failures.length){console.error(JSON.stringify(failures,null,2));throw Error(failures.length+' batch assessment failures');}
 console.log(`${checks} new-batch checks passed (six stories, authored alternatives, errors, whole-answer boundaries).`);
+
+const direction=batch.find(d=>d.id==='batch-bus').turns[1];
+const partial=E.check('  Oh, I need to sprock the other way.  ',direction);
+assert.equal(partial.status,'unknown');
+assert.deepEqual(Array.from(partial.annotations.filter(t=>t.color==='neutral'),t=>[t.text,t.start,t.end]),[['sprock',16,22]]);
+assert.equal(partial.annotations.find(t=>t.text==='way').color,'correct');
+const mixedScript=E.check('Oh, I need to go the other путь',direction);
+assert.equal(mixedScript.annotations.at(-1).color,'neutral');
+assert.equal(mixedScript.annotations.at(-1).text,'путь');
+const incomplete=E.check('Oh, I need to go the way',direction);
+assert.equal(incomplete.status,'unknown');
+assert.ok(incomplete.annotations.some(t=>t.color==='neutral'));
+const chanceWords=E.check('Purple elephants know the other way.',direction);
+assert.ok(chanceWords.annotations.every(t=>t.color==='neutral'));
+const park=batch.find(d=>d.id==='batch-park');
+const partialClause=E.check('I see you! I’m sprocking.',park.turns[8]);
+assert.equal(partialClause.status,'unknown');
+assert.equal(partialClause.annotations.find(t=>t.text==='see').color,'correct');
+assert.equal(partialClause.annotations.find(t=>t.text==='sprocking').color,'neutral');
+const hotel=batch.find(d=>d.id==='batch-hotel');
+const withOmission=E.check('I have reservation under Anna. Blorven.',hotel.turns[0]);
+assert.equal(withOmission.status,'unknown');
+assert.equal(withOmission.insertions[0].label,'a');
+assert.equal(withOmission.annotations.find(t=>t.text==='reservation').color,'correct');
+const usualRegister=E.check('I am in the wrong bus. Blorven.',direction);
+assert.equal(usualRegister.status,'unknown');
+assert.equal(usualRegister.annotations.find(t=>t.text==='in').color,'acceptable');
+console.log('Partial annotations passed: ordered matches, unknown words, neutral omissions, verified diagnostics and context.');

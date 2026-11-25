@@ -310,10 +310,20 @@
     }
     return {...(result||unknown('',e.blocks)),method:'construction',assessmentVersion:'pilot-1'};
   }
-  function check(answer,turn){
-    const result=evaluate(answer,turn);
-    const tokens=[...String(answer).matchAll(/[a-z]+(?:['’][a-z]+)?|[0-9]+/gi)].map(m=>({start:m.index,end:m.index+m[0].length,text:m[0],color:result.status==='unknown'?'neutral':'correct'}));
-    const units=tokens.flatMap((t,i)=>normalize(t.text,turn.assessment).split(' ').map(word=>({word,index:i})));
+  function tokenize(answer){
+    return [...answer.matchAll(/[\p{L}\p{M}\p{N}]+(?:['’‘][\p{L}\p{M}]+)?/gu)]
+      .map(m=>({start:m.index,end:m.index+m[0].length,text:m[0],color:'neutral'}));
+  }
+  function comparisonUnits(tokens,frame){
+    return tokens.flatMap((token,index)=>{
+      const text=token.text.normalize('NFKC');
+      // Keep unsupported words in place so they cannot disappear from an alignment.
+      const word=/^[a-z0-9'’‘]+$/i.test(text)?normalize(text,frame):text;
+      return word.split(' ').map(word=>({word,index}));
+    });
+  }
+  function annotate(tokens,units,result){
+    for(const token of tokens)token.color='correct';
     const locate=fragment=>{const words=normalize(fragment).split(' ');for(let i=0;i<=units.length-words.length;i++)if(words.every((w,j)=>units[i+j].word===w))return [...new Set(units.slice(i,i+words.length).map(u=>u.index))];return [];};
     const insertions=[];
     if(result.status==='error')for(const d of result.diagnostics||[result]){
@@ -338,7 +348,89 @@
       if(!ids.length)ids=tokens.map((_,i)=>i);
       for(const i of ids){tokens[i].color='acceptable';tokens[i].note=result.note;}
     }
-    return {...result,annotations:tokens,insertions,orthographyNote:(turn.assessment.allowLets?/^\s*lets\s+/i:/^lets\s+(?:watch|see|go|choose|pick)\b/i).test(String(answer))?'Разговорное lets принимается без снижения оценки; стандартное написание — let’s.':null,assessmentVersion:'pilot-3'};
+    return insertions;
+  }
+  // Use ordered context around one changed span. The comparison only provides
+  // feedback: it cannot accept an unparsed answer or diagnose a grammar error.
+  function markReferenceParts(tokens,units,turn){
+    let strongest=0;
+    let confirmed=[];
+    for(const example of turn.natural){
+      const reference=normalize(example,turn.assessment).split(' ');
+      let start=0,left=units.length,right=reference.length;
+      while(start<left&&start<right&&units[start].word===reference[start])start++;
+      while(left>start&&right>start&&units[left-1].word===reference[right-1]){left--;right--;}
+      const shared=start+reference.length-right;
+      if(shared*2<=reference.length||Math.min(left-start,right-start)>1)continue;
+      // A contracted surface token is green only if all of its units matched.
+      const matching=new Set(units.map(unit=>unit.index));
+      for(const unit of units.slice(start,left))matching.delete(unit.index);
+      // With a missing word, leave its neighboring token neutral so an
+      // unverified omission cannot look like an entirely green answer.
+      if(start===left){
+        if(start===right)continue;
+        matching.delete((units[start]||units[start-1])?.index);
+      }
+      if(matching.size<2||matching.size<strongest)continue;
+      if(matching.size>strongest){
+        strongest=matching.size;
+        confirmed=[...matching];
+      }else confirmed=confirmed.filter(index=>matching.has(index));
+    }
+    for(const i of confirmed)tokens[i].color='correct';
+  }
+  function annotateUnknown(answer,tokens,units,turn){
+    markReferenceParts(tokens,units,turn);
+    // An independently recognizable part separated by sentence punctuation
+    // can retain its diagnostics even when the rest has no reliable parse.
+    const maxPartSize=Math.max(0,...turn.natural.map(example=>tokenize(example).length))+8;
+    const confirmedCount=tokens.filter(token=>token.color==='correct').length;
+    let recognized;
+    let matchingClause;
+    let split=0;
+    for(const boundary of answer.matchAll(/[.!?;]+\s+/g)){
+      const end=boundary.index+boundary[0].length;
+      while(split<tokens.length&&tokens[split].start<end)split++;
+      if(split===0||split===tokens.length)continue;
+      for(const [start,stop] of [[0,split],[split,tokens.length]]){
+        const size=stop-start;
+        if(size<2||size>maxPartSize||size<=(recognized?.size||0))continue;
+        const part=answer.slice(tokens[start].start,start===0?end:answer.length);
+        const result=evaluate(part,turn);
+        if(['correct','acceptable','error'].includes(result.status))recognized={start,stop,size,result};
+        else if(size>Math.max(confirmedCount,matchingClause?.size||0)){
+          const text=normalize(part,turn.assessment);
+          const matches=turn.natural.some(example=>{
+            const clauses=example.split(/[.!?;]+\s+/);
+            return clauses.length>1&&normalize(start===0?clauses[0]:clauses.at(-1),turn.assessment)===text;
+          });
+          if(matches)matchingClause={start,stop,size};
+        }
+      }
+    }
+    if(!recognized&&matchingClause){
+      const {start,stop}=matchingClause;
+      for(const [i,token] of tokens.entries())token.color=i>=start&&i<stop?'correct':'neutral';
+    }
+    if(!recognized)return {insertions:[],diagnostics:[]};
+    const {start,stop,result}=recognized;
+    const partTokens=tokens.slice(start,stop);
+    const partUnits=comparisonUnits(partTokens,turn.assessment);
+    const insertions=annotate(partTokens,partUnits,result);
+    // Only the independently parsed part has a verified interpretation.
+    for(const token of [...tokens.slice(0,start),...tokens.slice(stop)])token.color='neutral';
+    const diagnostics=result.diagnostics||(['error','acceptable'].includes(result.status)?[result]:[]);
+    return {insertions,diagnostics};
+  }
+  function check(answer,turn){
+    answer=String(answer);
+    const result=evaluate(answer,turn);
+    const tokens=tokenize(answer);
+    const units=comparisonUnits(tokens,turn.assessment);
+    const feedback=result.status==='unknown'
+      ?annotateUnknown(answer,tokens,units,turn)
+      :{insertions:annotate(tokens,units,result)};
+    return {...result,annotations:tokens,...feedback,orthographyNote:(turn.assessment.allowLets?/^\s*lets\s+/i:/^\s*lets\s+(?:watch|see|go|choose|pick)\b/i).test(answer)?'Разговорное lets принимается без снижения оценки; стандартное написание — let’s.':null,assessmentVersion:'pilot-4'};
   }
   root.StructuredAssessment={check,normalize,nounPhrase,request};
   if(typeof module!=='undefined')module.exports=root.StructuredAssessment;

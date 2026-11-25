@@ -69,6 +69,20 @@ await click('[data-action=copy-journal]');await wait(40);await run('(()=>{const 
 // Successful Clipboard API writes consume the exported batch and preserve full conversation history.
 await choose(d);await click('[data-action=intro-next]');await answer('Another unusual unrecognized sentence');await click('[data-action=home]');await click('[data-action=history]');await click('[data-action=journal]');await run('Object.defineProperty(navigator,"clipboard",{configurable:true,value:{writeText:async text=>{window.__copied=text;}}})');const historyBefore=(await state()).history.length;await click('[data-action=copy-journal]');await wait(40);assert.equal((await state()).journal.length,0);assert.equal((await state()).history.length,historyBefore);assert.ok((await run('window.__copied')).includes('Another unusual unrecognized sentence'));
 
+const hotel=all.find(d=>d.id==='batch-hotel');
+await choose(hotel);await click('[data-action=intro-next]');
+await answer('I has a reservation under Anna. Blorven.');
+assert.equal(await run('document.querySelector(".status.unknown").textContent'),'Не распознано');
+assert.equal(await run('document.querySelector(".word-error").textContent'),'has');
+assert.equal(await run('document.querySelector(".word-neutral").textContent'),'Blorven');
+assert.equal(await run('document.querySelector(".word-correct").textContent'),'I');
+assert.equal((await state()).latestResults[hotel.id].counts.unknown,1);
+assert.equal((await state()).latestResults[hotel.id].counts.error,0);
+await fits('mixed review375');await shot('mixed-review');
+await click('[data-action=home]');await click('[data-action=history]');
+await click('[data-history-view="'+(await state()).history.at(-1).runId+'"]');
+assert.equal(await run('document.querySelector(".word-error").textContent'),'has');
+assert.equal(await run('document.querySelector(".word-neutral").textContent'),'Blorven');
 await send('Emulation.setDeviceMetricsOverride',{width:1280,height:900,deviceScaleFactor:1,mobile:false});await wait(100);await fits('desktop');
 assert.deepEqual(errors,[],'JS exceptions');assert.deepEqual(requests,[],'Unexpected network requests');
 console.log('Chrome file:// OFFLINE passed: eight full text runs, one speech run with stubbed audio, unified counters, catalogue and confirmation, intro/scenes/review/ending/result, Ava Premium selection, fixed panels, 390×844/375×667/desktop, keyboard viewport, themes, history/copy/journal, no JS exceptions or network requests.');

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-visual">
   <meta name="theme-color" content="#f5f7fb">
-  <meta name="application-version" content="0.13">
+  <meta name="application-version" content="0.13.1">
   <title>Everyday</title>
   <style>
 :root{color-scheme:light;--bg:#f5f7fb;--panel:#fff;--soft:#eaf0f4;--ink:#192a37;--muted:#536370;--line:#dce3e9;--accent:#166c58;--accent-soft:#e7f2ed;--green:#126048;--green-bg:#def0e5;--yellow:#805000;--yellow-bg:#fff0ba;--red:#9c201d;--red-bg:#ffdcd9;--gray:#536370;--gray-bg:#e9edf2;--app-height:100svh;font:20px/1.4 ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
@@ -27,7 +27,7 @@ button.version{border:0;background:transparent;padding:6px 4px;min-width:64px;mi
 <body>
   <header class="site-header">
     <a href="#" id="home-link" class="brand" aria-label="Everyday — на главную"><span class="brand-mark" aria-hidden="true">e.</span>everyday</a>
-    <button type="button" id="update-version" class="version" aria-label="Проверить обновления">v0.13</button>
+    <button type="button" id="update-version" class="version" aria-label="Проверить обновления">v0.13.1</button>
   </header>
   <main id="app"></main>
   <div id="toast" role="status" class="toast" hidden></div>
@@ -1420,10 +1420,20 @@ button.version{border:0;background:transparent;padding:6px 4px;min-width:64px;mi
     }
     return {...(result||unknown('',e.blocks)),method:'construction',assessmentVersion:'pilot-1'};
   }
-  function check(answer,turn){
-    const result=evaluate(answer,turn);
-    const tokens=[...String(answer).matchAll(/[a-z]+(?:['’][a-z]+)?|[0-9]+/gi)].map(m=>({start:m.index,end:m.index+m[0].length,text:m[0],color:result.status==='unknown'?'neutral':'correct'}));
-    const units=tokens.flatMap((t,i)=>normalize(t.text,turn.assessment).split(' ').map(word=>({word,index:i})));
+  function tokenize(answer){
+    return [...answer.matchAll(/[\p{L}\p{M}\p{N}]+(?:['’‘][\p{L}\p{M}]+)?/gu)]
+      .map(m=>({start:m.index,end:m.index+m[0].length,text:m[0],color:'neutral'}));
+  }
+  function comparisonUnits(tokens,frame){
+    return tokens.flatMap((token,index)=>{
+      const text=token.text.normalize('NFKC');
+      // Keep unsupported words in place so they cannot disappear from an alignment.
+      const word=/^[a-z0-9'’‘]+$/i.test(text)?normalize(text,frame):text;
+      return word.split(' ').map(word=>({word,index}));
+    });
+  }
+  function annotate(tokens,units,result){
+    for(const token of tokens)token.color='correct';
     const locate=fragment=>{const words=normalize(fragment).split(' ');for(let i=0;i<=units.length-words.length;i++)if(words.every((w,j)=>units[i+j].word===w))return [...new Set(units.slice(i,i+words.length).map(u=>u.index))];return [];};
     const insertions=[];
     if(result.status==='error')for(const d of result.diagnostics||[result]){
@@ -1448,7 +1458,89 @@ button.version{border:0;background:transparent;padding:6px 4px;min-width:64px;mi
       if(!ids.length)ids=tokens.map((_,i)=>i);
       for(const i of ids){tokens[i].color='acceptable';tokens[i].note=result.note;}
     }
-    return {...result,annotations:tokens,insertions,orthographyNote:(turn.assessment.allowLets?/^\s*lets\s+/i:/^lets\s+(?:watch|see|go|choose|pick)\b/i).test(String(answer))?'Разговорное lets принимается без снижения оценки; стандартное написание — let’s.':null,assessmentVersion:'pilot-3'};
+    return insertions;
+  }
+  // Use ordered context around one changed span. The comparison only provides
+  // feedback: it cannot accept an unparsed answer or diagnose a grammar error.
+  function markReferenceParts(tokens,units,turn){
+    let strongest=0;
+    let confirmed=[];
+    for(const example of turn.natural){
+      const reference=normalize(example,turn.assessment).split(' ');
+      let start=0,left=units.length,right=reference.length;
+      while(start<left&&start<right&&units[start].word===reference[start])start++;
+      while(left>start&&right>start&&units[left-1].word===reference[right-1]){left--;right--;}
+      const shared=start+reference.length-right;
+      if(shared*2<=reference.length||Math.min(left-start,right-start)>1)continue;
+      // A contracted surface token is green only if all of its units matched.
+      const matching=new Set(units.map(unit=>unit.index));
+      for(const unit of units.slice(start,left))matching.delete(unit.index);
+      // With a missing word, leave its neighboring token neutral so an
+      // unverified omission cannot look like an entirely green answer.
+      if(start===left){
+        if(start===right)continue;
+        matching.delete((units[start]||units[start-1])?.index);
+      }
+      if(matching.size<2||matching.size<strongest)continue;
+      if(matching.size>strongest){
+        strongest=matching.size;
+        confirmed=[...matching];
+      }else confirmed=confirmed.filter(index=>matching.has(index));
+    }
+    for(const i of confirmed)tokens[i].color='correct';
+  }
+  function annotateUnknown(answer,tokens,units,turn){
+    markReferenceParts(tokens,units,turn);
+    // An independently recognizable part separated by sentence punctuation
+    // can retain its diagnostics even when the rest has no reliable parse.
+    const maxPartSize=Math.max(0,...turn.natural.map(example=>tokenize(example).length))+8;
+    const confirmedCount=tokens.filter(token=>token.color==='correct').length;
+    let recognized;
+    let matchingClause;
+    let split=0;
+    for(const boundary of answer.matchAll(/[.!?;]+\s+/g)){
+      const end=boundary.index+boundary[0].length;
+      while(split<tokens.length&&tokens[split].start<end)split++;
+      if(split===0||split===tokens.length)continue;
+      for(const [start,stop] of [[0,split],[split,tokens.length]]){
+        const size=stop-start;
+        if(size<2||size>maxPartSize||size<=(recognized?.size||0))continue;
+        const part=answer.slice(tokens[start].start,start===0?end:answer.length);
+        const result=evaluate(part,turn);
+        if(['correct','acceptable','error'].includes(result.status))recognized={start,stop,size,result};
+        else if(size>Math.max(confirmedCount,matchingClause?.size||0)){
+          const text=normalize(part,turn.assessment);
+          const matches=turn.natural.some(example=>{
+            const clauses=example.split(/[.!?;]+\s+/);
+            return clauses.length>1&&normalize(start===0?clauses[0]:clauses.at(-1),turn.assessment)===text;
+          });
+          if(matches)matchingClause={start,stop,size};
+        }
+      }
+    }
+    if(!recognized&&matchingClause){
+      const {start,stop}=matchingClause;
+      for(const [i,token] of tokens.entries())token.color=i>=start&&i<stop?'correct':'neutral';
+    }
+    if(!recognized)return {insertions:[],diagnostics:[]};
+    const {start,stop,result}=recognized;
+    const partTokens=tokens.slice(start,stop);
+    const partUnits=comparisonUnits(partTokens,turn.assessment);
+    const insertions=annotate(partTokens,partUnits,result);
+    // Only the independently parsed part has a verified interpretation.
+    for(const token of [...tokens.slice(0,start),...tokens.slice(stop)])token.color='neutral';
+    const diagnostics=result.diagnostics||(['error','acceptable'].includes(result.status)?[result]:[]);
+    return {insertions,diagnostics};
+  }
+  function check(answer,turn){
+    answer=String(answer);
+    const result=evaluate(answer,turn);
+    const tokens=tokenize(answer);
+    const units=comparisonUnits(tokens,turn.assessment);
+    const feedback=result.status==='unknown'
+      ?annotateUnknown(answer,tokens,units,turn)
+      :{insertions:annotate(tokens,units,result)};
+    return {...result,annotations:tokens,...feedback,orthographyNote:(turn.assessment.allowLets?/^\s*lets\s+/i:/^\s*lets\s+(?:watch|see|go|choose|pick)\b/i).test(answer)?'Разговорное lets принимается без снижения оценки; стандартное написание — let’s.':null,assessmentVersion:'pilot-4'};
   }
   root.StructuredAssessment={check,normalize,nounPhrase,request};
   if(typeof module!=='undefined')module.exports=root.StructuredAssessment;
@@ -2183,10 +2275,10 @@ root.DIALOGUES.find(d=>d.id==='batch-bus').turns[8].assessment.cases.error.push(
   <script>
 (function(){
   'use strict';
-  window.APP_VERSION='0.13';
+  window.APP_VERSION='0.13.1';
   const $=id=>document.getElementById(id),app=$('app'),E=window.OfflineEngine,P=window.OfflineProgress,S=window.OfflineSpeech;
   const dialogues=window.DIALOGUES.filter(d=>d.checking==='construction'),KEY='everyday-offline-v1';
-  const statusNames={correct:'Верно',acceptable:'Понятно, но обычно так не говорят или неуместно в этой ситуации',error:'Ошибка',unknown:'Не определено',revealed:'Не определено'};
+  const statusNames={correct:'Верно',acceptable:'Понятно, но обычно так не говорят или неуместно в этой ситуации',error:'Ошибка',unknown:'Не распознано',revealed:'Не определено'};
   const esc=t=>String(t??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   let saved={},persistent=true;try{saved=JSON.parse(localStorage.getItem(KEY)||'{}')||{};}catch(_){persistent=false;}
   const availableLevels=['A1','A2','B1','B2','C1','C2'].filter(l=>dialogues.some(d=>d.level===l));
@@ -2284,11 +2376,11 @@ root.DIALOGUES.find(d=>d.id==='batch-bus').turns[8].assessment.cases.error.push(
   function detail(a){const notes=[];if(['error','acceptable'].includes(a.status)&&a.note)notes.push(a.note);if(a.orthographyNote)notes.push(a.orthographyNote);for(const d of a.diagnostics||[])if(d.note&&!notes.includes(d.note))notes.push(d.note);for(const n of a.grammarNotes||[])if(!notes.includes(n))notes.push(n);return notes.map(n=>`<p class="explanation">${esc(n)}</p>`).join('');}
   function renderReview(){stop();const d=current(),t=d.turns[viewIndex],a=session.answers[viewIndex];if(!a)return renderWork();setPhase('review');page('review',`<section class="screen">${practiceTop(`${viewIndex+1}/${d.turns.length}`)}<div class="review-scroll"><section class="panel review-card ${a.status}"><h1 class="status ${a.status}">${statusNames[a.status]}</h1>${annotated(a.answer,a)}${detail(a)}<div><p class="reference-label">Эталон</p><p class="best" lang="en">${esc(t.best)}</p></div><button type="button" class="variants-button" data-action="variants" aria-expanded="${variantsOpen}">${variantsOpen?'Скрыть варианты':'Другие варианты'}</button>${variantsOpen?`<ul class="variants" lang="en">${E.preferred(t).map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}</section></div>${nav('review-back','Дальше')}</section>`);}
   function remember(){const d=current();if(!d||!session.answers.length)return;const h=JSON.parse(JSON.stringify({runId:session.runId,mode:session.mode,practiceReplay:Boolean(session.practiceReplay),index:session.index,startedAt:session.startedAt,updatedAt:new Date().toISOString(),answers:session.answers,dialogue:d}));history=[...history.filter(x=>x.runId!==h.runId),h].slice(-6);recordResult(h);}
-  function submit(){const d=current();if(screen!=='work'||viewIndex!==session.index||session.answers[viewIndex]||session.mode==='speech'&&!view().task)return;const answer=$('answer').value.trim();if(!answer)return;const result=E.check(answer,d.turns[viewIndex]);if(result.status==='empty')return;const a={...result,answer,at:new Date().toISOString()};session.answers[viewIndex]=a;session.draft=answer;if(a.status==='unknown')journal.push({at:a.at,dialogueId:d.id,title:d.title,level:d.level,topic:d.topicLabel,mode:session.mode,context:d.context,partner:d.turns[viewIndex].en,partnerTranslation:d.turns[viewIndex].ru,stage:d.turns[viewIndex].stage||'',task:d.turns[viewIndex].task,answer,best:d.turns[viewIndex].best,turn:viewIndex+1});$('answer').blur();remember();save();variantsOpen=false;renderReview();}
+  function submit(){const d=current();if(screen!=='work'||viewIndex!==session.index||session.answers[viewIndex]||session.mode==='speech'&&!view().task)return;const answer=$('answer').value;if(!answer.trim())return;const result=E.check(answer,d.turns[viewIndex]);if(result.status==='empty')return;const a={...result,answer,at:new Date().toISOString()};session.answers[viewIndex]=a;session.draft=answer;if(a.status==='unknown')journal.push({at:a.at,dialogueId:d.id,title:d.title,level:d.level,topic:d.topicLabel,mode:session.mode,context:d.context,partner:d.turns[viewIndex].en,partnerTranslation:d.turns[viewIndex].ru,stage:d.turns[viewIndex].stage||'',task:d.turns[viewIndex].task,answer,best:d.turns[viewIndex].best,turn:viewIndex+1});$('answer').blur();remember();save();variantsOpen=false;renderReview();}
   function next(){stop();if(screen!=='review')return;const d=current();if(viewIndex<session.index){viewIndex++;return openTurn();}if(!session.answers[session.index])return;session.index++;session.draft='';viewIndex=session.index;remember();save();variantsOpen=false;openTurn();}
   function renderEnding(){stop();setPhase('ending');const d=current(),audio=session.mode==='speech',v=session.endingView||(session.endingView={text:false,translation:false}),shown=!audio;page('ending',`<section class="screen ending-screen">${practiceTop()}<div class="ending-body panel">${shown?`<p class="english" lang="en">${esc(d.ending.en)}</p>${v.translation?`<p class="translation">${esc(d.ending.ru)}</p>`:''}`:`<div class="audio-main">${listen(true)}</div>`}<div class="partner-controls">${shown?listen(true):''}${shown?`<button type="button" class="toggle" data-action="ending-translation">${v.translation?'Скрыть перевод':'Перевод'}</button>`:''}</div></div>${nav('ending-back','Дальше','ending-next')}</section>`);}
   function finish(){if(screen!=='ending')return;const d=current();if(!session.completedRecorded){if(!session.practiceReplay)completionCounts[d.id]=Math.min(Number.MAX_SAFE_INTEGER,P.count(completionCounts[d.id])+1);session.completedRecorded=true;}remember();save();renderDone();}
-  function renderDone(){stop();setPhase('done');const d=current(),count=k=>session.answers.filter(a=>a.status===k||(k==='unknown'&&a.status==='revealed')).length;page('done',`<section class="screen done"><h1>Итог</h1><div class="done-content"><div class="stats">${[['correct','Верно'],['acceptable','Понятно'],['error','Ошибка'],['unknown','Не определено']].map(([k,label])=>`<div class="stat ${k}"><strong>${count(k)}</strong>${label}</div>`).join('')}</div></div><div class="done-actions"><button type="button" data-action="copy-all">Скопировать диалог</button><button type="button" data-action="replay">Пройти заново</button><button type="button" class="primary" data-action="home">Выход</button></div></section>`);}
+  function renderDone(){stop();setPhase('done');const d=current(),count=k=>session.answers.filter(a=>a.status===k||(k==='unknown'&&a.status==='revealed')).length;page('done',`<section class="screen done"><h1>Итог</h1><div class="done-content"><div class="stats">${[['correct','Верно'],['acceptable','Понятно'],['error','Ошибка'],['unknown',statusNames.unknown]].map(([k,label])=>`<div class="stat ${k}"><strong>${count(k)}</strong>${label}</div>`).join('')}</div></div><div class="done-actions"><button type="button" data-action="copy-all">Скопировать диалог</button><button type="button" data-action="replay">Пройти заново</button><button type="button" class="primary" data-action="home">Выход</button></div></section>`);}
   function renderHistory(tab='dialogues'){stop();const journalTab=tab==='journal';page(journalTab?'journal':'history',`<section class="screen">${top('История')}<div class="segments"><button type="button" data-action="history" aria-pressed="${!journalTab}">Диалоги · ${history.length}</button><button type="button" data-action="journal" aria-pressed="${journalTab}">Не распознано · ${journal.length}</button></div><div class="list-scroll">${journalTab?journalHTML():history.length?[...history].reverse().map(h=>`<article class="panel history-card"><div class="meta"><span>${h.index}/${h.dialogue.turns.length}</span></div><h2>${esc(h.dialogue.title)}</h2><div class="actions"><button type="button" data-history-view="${esc(h.runId)}">Открыть</button><button type="button" data-history-copy="${esc(h.runId)}">Скопировать</button></div></article>`).join(''):'<p class="empty">Пусто</p>'}</div>${journalTab?`<button type="button" class="primary" data-action="copy-journal" ${journal.length?'':'disabled'}>Скопировать все</button>`:'<button type="button" data-action="home">Назад</button>'}</section>`);}
   function journalHTML(){return journal.length?[...journal].reverse().map(j=>`<article class="panel journal-entry"><p class="meta">${esc(j.title)} · ${esc(j.level)}</p><p lang="en">${esc(j.partner)}</p><p>${esc(j.task)}</p><blockquote lang="en">${esc(j.answer)}</blockquote><p class="best" lang="en">${esc(j.best)}</p></article>`).join(''):'<p class="empty">Пусто</p>';}
   function renderHistoryEntry(h){const d=h.dialogue;page('history-entry',`<section class="screen">${top(d.title)}<div class="list-scroll"><p class="context">${esc(d.context)}</p>${h.answers.map((a,i)=>{const t=d.turns[i];return `<article class="panel history-exchange">${t.stage?`<p class="scene-note">${esc(t.stage)}</p>`:''}<p class="english" lang="en">${esc(t.en)}</p><p class="translation">${esc(t.ru)}</p><p>${esc(t.task)}</p><span class="status ${a.status}">${statusNames[a.status]}</span>${annotated(a.answer,a)}${detail(a)}<div><p class="reference-label">Эталон</p><p class="best" lang="en">${esc(t.best)}</p></div></article>`;}).join('')}${h.index===d.turns.length?`<p class="english" lang="en">${esc(d.ending.en)}</p>`:''}</div>${nav('history','Скопировать','copy-entry')}</section>`);app.dataset.historyId=h.runId;}
