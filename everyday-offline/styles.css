@@ -12,3 +12,19 @@ button.version{border:0;background:transparent;padding:6px 4px;min-width:64px;mi
 
 /* Catalogue and a single practice with optional hidden text. */
 .home-actions{flex:0 0 auto}.home-history{min-height:48px}.text-switch{font-size:20px;padding:7px 10px;white-space:nowrap}.topline .counter{margin-left:auto;white-space:nowrap}.catalog-topic{margin:8px 0 24px}.catalog-topic h2{margin-bottom:10px}.catalog-row{display:flex;align-items:center;gap:10px;margin:6px 0}.dialogue-choice{flex:1;text-align:left;min-width:0;overflow-wrap:anywhere}.completion-dot{width:44px;min-width:44px;min-height:44px;padding:10px;border:0;background:transparent;display:grid;place-items:center}.completion-dot::before{content:"";width:24px;height:24px;border:2px solid var(--muted);border-radius:50%;background:transparent}.completion-dot.completed::before{background:var(--green);border-color:var(--green)}.completion-dot[aria-pressed=true]{background:transparent}.dialogue-summary{flex:1;display:grid;place-items:center}.last-stats{display:flex;gap:24px;align-items:center;font-size:32px;font-weight:700}.last-stats .correct{color:var(--green)}.last-stats .acceptable{color:var(--yellow)}.last-stats .error{color:var(--red)}.last-stats .unknown{color:var(--gray)}#mark-dialog h2{font-size:24px;margin-bottom:16px}#mark-name{margin-bottom:24px;font-size:20px}.dialogue-detail .screen-title{white-space:normal;overflow-wrap:anywhere}.catalog-list{padding-right:5px}
+.home-history button{padding-inline:8px}
+.activity-content{display:flex;flex-direction:column;gap:24px}
+.activity-content>*{flex:none}
+.activity-total,.activity-row{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.activity-total{padding:12px 16px;background:var(--accent-soft);color:var(--accent)}
+.activity-total strong{font-size:32px;line-height:1.15}
+.activity-section{display:grid;gap:10px}
+.activity-row strong,.activity-days strong{font-variant-numeric:tabular-nums}
+.activity-days,.activity-weeks{list-style:none;margin:0;padding:0}
+.activity-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.activity-days li{display:grid;justify-items:center;align-content:center;gap:3px;min-height:65px;border:1px solid var(--line);border-radius:10px;background:var(--panel);padding:4px 0}
+.activity-days li[aria-current=date]{border-color:var(--accent);background:var(--accent-soft)}
+.activity-days abbr{font-size:16px;color:var(--muted);text-decoration:none}
+.activity-days li.future{background:transparent;color:var(--muted)}
+.activity-weeks li{padding:10px 0;border-bottom:1px solid var(--line)}
+.activity-undated{font-size:16px;color:var(--muted)}

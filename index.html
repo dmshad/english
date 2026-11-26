@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-visual">
   <meta name="theme-color" content="#f5f7fb">
-  <meta name="application-version" content="0.13.1">
+  <meta name="application-version" content="0.14">
   <title>Everyday</title>
   <style>
 :root{color-scheme:light;--bg:#f5f7fb;--panel:#fff;--soft:#eaf0f4;--ink:#192a37;--muted:#536370;--line:#dce3e9;--accent:#166c58;--accent-soft:#e7f2ed;--green:#126048;--green-bg:#def0e5;--yellow:#805000;--yellow-bg:#fff0ba;--red:#9c201d;--red-bg:#ffdcd9;--gray:#536370;--gray-bg:#e9edf2;--app-height:100svh;font:20px/1.4 ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
@@ -21,13 +21,29 @@ button.version{border:0;background:transparent;padding:6px 4px;min-width:64px;mi
 
 /* Catalogue and a single practice with optional hidden text. */
 .home-actions{flex:0 0 auto}.home-history{min-height:48px}.text-switch{font-size:20px;padding:7px 10px;white-space:nowrap}.topline .counter{margin-left:auto;white-space:nowrap}.catalog-topic{margin:8px 0 24px}.catalog-topic h2{margin-bottom:10px}.catalog-row{display:flex;align-items:center;gap:10px;margin:6px 0}.dialogue-choice{flex:1;text-align:left;min-width:0;overflow-wrap:anywhere}.completion-dot{width:44px;min-width:44px;min-height:44px;padding:10px;border:0;background:transparent;display:grid;place-items:center}.completion-dot::before{content:"";width:24px;height:24px;border:2px solid var(--muted);border-radius:50%;background:transparent}.completion-dot.completed::before{background:var(--green);border-color:var(--green)}.completion-dot[aria-pressed=true]{background:transparent}.dialogue-summary{flex:1;display:grid;place-items:center}.last-stats{display:flex;gap:24px;align-items:center;font-size:32px;font-weight:700}.last-stats .correct{color:var(--green)}.last-stats .acceptable{color:var(--yellow)}.last-stats .error{color:var(--red)}.last-stats .unknown{color:var(--gray)}#mark-dialog h2{font-size:24px;margin-bottom:16px}#mark-name{margin-bottom:24px;font-size:20px}.dialogue-detail .screen-title{white-space:normal;overflow-wrap:anywhere}.catalog-list{padding-right:5px}
+.home-history button{padding-inline:8px}
+.activity-content{display:flex;flex-direction:column;gap:24px}
+.activity-content>*{flex:none}
+.activity-total,.activity-row{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.activity-total{padding:12px 16px;background:var(--accent-soft);color:var(--accent)}
+.activity-total strong{font-size:32px;line-height:1.15}
+.activity-section{display:grid;gap:10px}
+.activity-row strong,.activity-days strong{font-variant-numeric:tabular-nums}
+.activity-days,.activity-weeks{list-style:none;margin:0;padding:0}
+.activity-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.activity-days li{display:grid;justify-items:center;align-content:center;gap:3px;min-height:65px;border:1px solid var(--line);border-radius:10px;background:var(--panel);padding:4px 0}
+.activity-days li[aria-current=date]{border-color:var(--accent);background:var(--accent-soft)}
+.activity-days abbr{font-size:16px;color:var(--muted);text-decoration:none}
+.activity-days li.future{background:transparent;color:var(--muted)}
+.activity-weeks li{padding:10px 0;border-bottom:1px solid var(--line)}
+.activity-undated{font-size:16px;color:var(--muted)}
 
 </style>
 </head>
 <body>
   <header class="site-header">
     <a href="#" id="home-link" class="brand" aria-label="Everyday — на главную"><span class="brand-mark" aria-hidden="true">e.</span>everyday</a>
-    <button type="button" id="update-version" class="version" aria-label="Проверить обновления">v0.13.1</button>
+    <button type="button" id="update-version" class="version" aria-label="Проверить обновления">v0.14</button>
   </header>
   <main id="app"></main>
   <div id="toast" role="status" class="toast" hidden></div>
@@ -1208,10 +1224,16 @@ button.version{border:0;background:transparent;padding:6px 4px;min-width:64px;mi
   }
   function objectAnswer(s,frame,blocks,polite){
     const req=request(s),np=nounPhrase(req.object,req.full);
-    if(!np)return req.full?unknown(req.object,[...blocks,{role:'Просьба',text:req.prefix}]):null;
     const parts=[...blocks,...(req.prefix?[{role:'Просьба',text:req.prefix}]:[]),{role:'Предмет и определители',text:req.object}];
     if(/\b(?:borrow|lend|lending)\b/.test(req.prefix)&&frame.noun!=='textbook')return unknown(req.object,parts);
     if(/\b(?:pour|pouring)\b/.test(req.prefix)&&frame.noun!=='water'&&frame.noun!=='glass')return unknown(req.object,parts);
+    if(!np){
+      if(!req.full)return null;
+      const result=unknown(req.object,[...blocks,{role:'Просьба',text:req.prefix}]);
+      if(req.style==='neutral'&&s.startsWith(req.prefix+' ')&&
+          (frame.noun==='textbook'||!/\bborrowed\b/.test(req.prefix)))result.partialRequest=req.prefix;
+      return result;
+    }
     if(np.errors.length){const first=np.errors[0];return {...bad(first.code,first.fragment,first.note,first.correction,parts),diagnostics:np.errors};}
     let match=frame.noun===np.kind;
     if(frame.noun==='water' && np.content?.kind==='water')match=true;
@@ -1460,19 +1482,28 @@ button.version{border:0;background:transparent;padding:6px 4px;min-width:64px;mi
     }
     return insertions;
   }
-  // Use ordered context around one changed span. The comparison only provides
-  // feedback: it cannot accept an unparsed answer or diagnose a grammar error.
-  function markReferenceParts(tokens,units,turn){
+  // Ordered context provides feedback without accepting an incomplete parse.
+  function markReferenceParts(tokens,units,references,frame){
     let strongest=0;
     let confirmed=[];
-    for(const example of turn.natural){
-      const reference=normalize(example,turn.assessment).split(' ');
+    for(const example of references){
+      const reference=normalize(example,frame).split(' ');
       let start=0,left=units.length,right=reference.length;
       while(start<left&&start<right&&units[start].word===reference[start])start++;
       while(left>start&&right>start&&units[left-1].word===reference[right-1]){left--;right--;}
       const shared=start+reference.length-right;
-      if(shared*2<=reference.length||Math.min(left-start,right-start)>1)continue;
-      // A contracted surface token is green only if all of its units matched.
+      const singleGap=shared*2>reference.length&&Math.min(left-start,right-start)<=1;
+      const suffix=reference.length-right;
+      // With multiple differences, only trust a longer contiguous edge in
+      // a closely aligned formulation. Interior single words prove nothing.
+      if(!singleGap){
+        if(reference.length!==units.length||Math.max(start,suffix)<3)continue;
+        const aligned=units.filter((unit,i)=>unit.word===reference[i]).length;
+        if(aligned*3<reference.length*2)continue;
+        if(start<3)start=0;
+        if(suffix<3)left=units.length;
+      }
+      // A contracted surface token is green only if all its units matched.
       const matching=new Set(units.map(unit=>unit.index));
       for(const unit of units.slice(start,left))matching.delete(unit.index);
       // With a missing word, leave its neighboring token neutral so an
@@ -1489,47 +1520,52 @@ button.version{border:0;background:transparent;padding:6px 4px;min-width:64px;mi
     }
     for(const i of confirmed)tokens[i].color='correct';
   }
-  function annotateUnknown(answer,tokens,units,turn){
-    markReferenceParts(tokens,units,turn);
-    // An independently recognizable part separated by sentence punctuation
-    // can retain its diagnostics even when the rest has no reliable parse.
-    const maxPartSize=Math.max(0,...turn.natural.map(example=>tokenize(example).length))+8;
-    const confirmedCount=tokens.filter(token=>token.color==='correct').length;
-    let recognized;
-    let matchingClause;
-    let split=0;
-    for(const boundary of answer.matchAll(/[.!?;]+\s+/g)){
-      const end=boundary.index+boundary[0].length;
-      while(split<tokens.length&&tokens[split].start<end)split++;
-      if(split===0||split===tokens.length)continue;
-      for(const [start,stop] of [[0,split],[split,tokens.length]]){
-        const size=stop-start;
-        if(size<2||size>maxPartSize||size<=(recognized?.size||0))continue;
-        const part=answer.slice(tokens[start].start,start===0?end:answer.length);
-        const result=evaluate(part,turn);
-        if(['correct','acceptable','error'].includes(result.status))recognized={start,stop,size,result};
-        else if(size>Math.max(confirmedCount,matchingClause?.size||0)){
-          const text=normalize(part,turn.assessment);
-          const matches=turn.natural.some(example=>{
-            const clauses=example.split(/[.!?;]+\s+/);
-            return clauses.length>1&&normalize(start===0?clauses[0]:clauses.at(-1),turn.assessment)===text;
-          });
-          if(matches)matchingClause={start,stop,size};
-        }
+  const clauseBoundary=/[.!?;]+[^\S\r\n]+|[!?;]+|[\r\n]+/g;
+  function markRequestPrefix(tokens,units,prefix){
+    if(!prefix)return;
+    const words=prefix.split(' ');
+    const start=units.findIndex((unit,i)=>words.every((word,j)=>units[i+j]?.word===word));
+    if(start<0)return;
+    const before=units[start-1]?.index,after=units[start+words.length]?.index;
+    for(const {index} of units.slice(start,start+words.length)){
+      if(index!==before&&index!==after)tokens[index].color='correct';
+    }
+  }
+  function annotateUnknown(answer,tokens,units,turn,result){
+    const frame=turn.assessment;
+    const insertions=[],diagnostics=[],parts=[];
+    let start=0,stop=0;
+    const ends=[...answer.matchAll(clauseBoundary)].map(m=>m.index+m[0].length);
+    for(const end of [...ends,answer.length]){
+      while(stop<tokens.length&&tokens[stop].start<end)stop++;
+      if(stop>start)parts.push(tokens.slice(start,stop));
+      start=stop;
+    }
+    if(parts.length<2){
+      markReferenceParts(tokens,units,turn.natural,frame);
+      markRequestPrefix(tokens,units,result.partialRequest);
+      return {insertions,diagnostics};
+    }
+    const referenceClauses=turn.natural.flatMap(example=>{
+      const clauses=example.split(clauseBoundary);
+      return clauses.length>1?clauses.filter(clause=>tokenize(clause).length>=2):[];
+    });
+    const references=[...turn.natural,...referenceClauses];
+    for(const part of parts){
+      const text=answer.slice(part[0].start,part.at(-1).end);
+      const result=evaluate(text,turn);
+      const partUnits=comparisonUnits(part,frame);
+      if(result.status==='unknown'){
+        if(part.length>=2&&referenceClauses.some(clause=>normalize(clause,frame)===normalize(text,frame))){
+          for(const token of part)token.color='correct';
+        }else markReferenceParts(part,partUnits,references,frame);
+        markRequestPrefix(part,partUnits,result.partialRequest);
+        continue;
       }
+      if(part.length===1&&result.status!=='correct')continue;
+      insertions.push(...annotate(part,partUnits,result));
+      diagnostics.push(...(result.diagnostics||(['error','acceptable'].includes(result.status)?[result]:[])));
     }
-    if(!recognized&&matchingClause){
-      const {start,stop}=matchingClause;
-      for(const [i,token] of tokens.entries())token.color=i>=start&&i<stop?'correct':'neutral';
-    }
-    if(!recognized)return {insertions:[],diagnostics:[]};
-    const {start,stop,result}=recognized;
-    const partTokens=tokens.slice(start,stop);
-    const partUnits=comparisonUnits(partTokens,turn.assessment);
-    const insertions=annotate(partTokens,partUnits,result);
-    // Only the independently parsed part has a verified interpretation.
-    for(const token of [...tokens.slice(0,start),...tokens.slice(stop)])token.color='neutral';
-    const diagnostics=result.diagnostics||(['error','acceptable'].includes(result.status)?[result]:[]);
     return {insertions,diagnostics};
   }
   function check(answer,turn){
@@ -1538,9 +1574,9 @@ button.version{border:0;background:transparent;padding:6px 4px;min-width:64px;mi
     const tokens=tokenize(answer);
     const units=comparisonUnits(tokens,turn.assessment);
     const feedback=result.status==='unknown'
-      ?annotateUnknown(answer,tokens,units,turn)
+      ?annotateUnknown(answer,tokens,units,turn,result)
       :{insertions:annotate(tokens,units,result)};
-    return {...result,annotations:tokens,...feedback,orthographyNote:(turn.assessment.allowLets?/^\s*lets\s+/i:/^\s*lets\s+(?:watch|see|go|choose|pick)\b/i).test(answer)?'Разговорное lets принимается без снижения оценки; стандартное написание — let’s.':null,assessmentVersion:'pilot-4'};
+    return {...result,annotations:tokens,...feedback,orthographyNote:(turn.assessment.allowLets?/^\s*lets\s+/i:/^\s*lets\s+(?:watch|see|go|choose|pick)\b/i).test(answer)?'Разговорное lets принимается без снижения оценки; стандартное написание — let’s.':null,assessmentVersion:'pilot-5'};
   }
   root.StructuredAssessment={check,normalize,nounPhrase,request};
   if(typeof module!=='undefined')module.exports=root.StructuredAssessment;
@@ -2217,7 +2253,55 @@ root.DIALOGUES.find(d=>d.id==='batch-bus').turns[8].assessment.cases.error.push(
     const topic=next[Math.floor(random()*next.length)];
     return pool.filter(d=>d.topic===topic);
   }
-  root.OfflineProgress={migrate,eligible,balanced,count};
+  function dayKey(date){
+    return [date.getFullYear(),date.getMonth()+1,date.getDate()].map(n=>String(n).padStart(2,'0')).join('-');
+  }
+  function restoreActivity(saved,session,history){
+    const days={};
+    if(saved.activity){
+      for(const [day,n] of Object.entries(saved.activity.days||{}))if(/^\d{4}-\d{2}-\d{2}$/.test(day)&&count(n))days[day]=n;
+      return {days,undated:count(saved.activity.undated)};
+    }
+    // Legacy counts have no dates. Only the last saved session can prove
+    // that its closing screen was passed, rather than merely reached.
+    const counts=migrate(saved);
+    let undated=Object.values(counts).reduce((sum,n)=>Math.min(Number.MAX_SAFE_INTEGER,sum+n),0);
+    const h=history.find(h=>h.runId===session?.runId);
+    if(session?.phase==='done'&&session.completedRecorded&&session.practiceReplay===false&&
+        count(counts[session.id])&&h?.dialogue.id===session.id&&typeof h.updatedAt==='string'){
+      const date=new Date(h.updatedAt);
+      if(!Number.isNaN(date.getTime())){days[dayKey(date)]=1;undated--;}
+    }
+    return {days,undated};
+  }
+  function dateFor(day){
+    const [year,month,date]=day.split('-').map(Number);
+    return new Date(year,month-1,date,12);
+  }
+  function shift(date,days){
+    return new Date(date.getFullYear(),date.getMonth(),date.getDate()+days,12);
+  }
+  function monday(date){return shift(date,-((date.getDay()+6)%7));}
+  function summarizeActivity({days,undated},now=new Date()){
+    const today=dayKey(now),start=monday(now),current=dayKey(start),past=new Map();
+    const week=Array.from({length:7},(_,i)=>{
+      const date=shift(start,i),key=dayKey(date);
+      return {date,count:days[key]||0,today:key===today,future:key>today};
+    });
+    let total=undated;
+    for(const [day,n] of Object.entries(days)){
+      total+=n;
+      if(day>=current)continue;
+      const key=dayKey(monday(dateFor(day)));
+      past.set(key,(past.get(key)||0)+n);
+    }
+    const previous=[...past.keys()].sort().reverse().map(key=>{
+      const start=dateFor(key);
+      return {start,end:shift(start,6),count:past.get(key)};
+    });
+    return {total,undated,week,previous,weekTotal:week.reduce((sum,day)=>sum+day.count,0)};
+  }
+  root.OfflineProgress={migrate,eligible,balanced,count,dayKey,restoreActivity,summarizeActivity};
 })(typeof window!=='undefined'?window:globalThis);
 
 </script>
@@ -2275,7 +2359,7 @@ root.DIALOGUES.find(d=>d.id==='batch-bus').turns[8].assessment.cases.error.push(
   <script>
 (function(){
   'use strict';
-  window.APP_VERSION='0.13.1';
+  window.APP_VERSION='0.14';
   const $=id=>document.getElementById(id),app=$('app'),E=window.OfflineEngine,P=window.OfflineProgress,S=window.OfflineSpeech;
   const dialogues=window.DIALOGUES.filter(d=>d.checking==='construction'),KEY='everyday-offline-v1';
   const statusNames={correct:'Верно',acceptable:'Понятно, но обычно так не говорят или неуместно в этой ситуации',error:'Ошибка',unknown:'Не распознано',revealed:'Не определено'};
@@ -2299,10 +2383,11 @@ root.DIALOGUES.find(d=>d.id==='batch-bus').turns[8].assessment.cases.error.push(
   const stored=dialogues.find(d=>d.id===session?.id);
   if(contentUpdated||!stored||!Number.isInteger(session?.index)||session.index<0||session.index>stored.turns.length||!Array.isArray(session.answers)||session.answers.length<session.index||session.answers.length>stored.turns.length||!session.answers.every(validAnswer))session=null;
   if(session){if(!Number.isInteger(session.viewIndex)||session.viewIndex<0||session.viewIndex>session.index)session.viewIndex=session.index;session.mode=session.mode==='speech'?'speech':'text';session.draft=typeof session.draft==='string'?session.draft:'';session.views=session.views&&typeof session.views==='object'?session.views:{};session.runId=typeof session.runId==='string'?session.runId:runId();session.completedRecorded=typeof session.completedRecorded==='boolean'?session.completedRecorded:session.index===stored.turns.length;session.phase=['intro','stage','work','review','ending','done'].includes(session.phase)?session.phase:session.index===stored.turns.length?'done':session.answers[session.index]?'review':'work';}
+  const activity=P.restoreActivity(saved,session,history);
   let screen='home',viewIndex=session?.index||0,variantsOpen=false,toastTimer,selectedId=null,pendingMark=null,copyingJournal=false,pendingCopyBatch=null;
   function runId(){return Date.now()+'-'+Math.random().toString(36).slice(2);}
   function current(){return dialogues.find(d=>d.id===session?.id);}
-  function save(){try{localStorage.setItem(KEY,JSON.stringify({version:5,progressFormat:2,progressRevision:window.CONTENT_REVISION,settings,completionCounts,topicOrder,latestResults,history,journal,session}));}catch(_){persistent=false;}}
+  function save(){try{localStorage.setItem(KEY,JSON.stringify({version:5,progressFormat:2,progressRevision:window.CONTENT_REVISION,settings,completionCounts,activity,topicOrder,latestResults,history,journal,session}));}catch(_){persistent=false;}}
   function applyTheme(){document.documentElement.dataset.theme=settings.theme;document.querySelector('meta[name="theme-color"]')?.setAttribute('content',settings.theme==='dark'?'#111014':'#f5f7fb');}
   function toast(t){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,2600);}
   function stop(){S.stop();}
@@ -2319,7 +2404,7 @@ root.DIALOGUES.find(d=>d.id==='batch-bus').turns[8].assessment.cases.error.push(
       ${levels()}
       ${`<div class="field"><label for="voice-choice" class="field-label">Голос</label><select id="voice-choice"><option value="">Автоматически</option>${S.localVoices().map(v=>`<option value="${esc(S.key(v))}" ${S.key(v)===settings.voiceURI?'selected':''}>${esc(v.name)} · ${esc(v.lang)}</option>`).join('')}${settings.voiceURI&&!S.voice(settings.voiceURI)?`<option value="${esc(settings.voiceURI)}" selected disabled>${settings.voiceURI==='@ava-premium'?'Ava (Premium) недоступен':'Выбранный голос недоступен'}</option>`:''}</select></div>`}
       <div class="home-actions">${session&&session.phase!=='done'?'<button type="button" data-action="resume">Продолжить</button>':''}<button type="button" data-action="catalog">Выбрать диалог</button><button type="button" class="primary" data-action="start" ${choices().length?'':'disabled'}>Начать следующий диалог</button></div>
-      <button type="button" class="home-history" data-action="history">История</button>${!persistent?'<p class="storage-error" role="status">Сохранение недоступно</p>':''}${contentUpdated?'<p class="storage-error" role="status">Сюжет обновлен. Начни диалог заново.</p>':''}</section>`);
+      <div class="segments home-history"><button type="button" data-action="statistics">Статистика</button><button type="button" data-action="history">История</button></div>${!persistent?'<p class="storage-error" role="status">Сохранение недоступно</p>':''}${contentUpdated?'<p class="storage-error" role="status">Сюжет обновлен. Начни диалог заново.</p>':''}</section>`);
   }
   function home(){stop();save();renderHome();}
   function begin(id,practiceReplay=false){
@@ -2379,9 +2464,50 @@ root.DIALOGUES.find(d=>d.id==='batch-bus').turns[8].assessment.cases.error.push(
   function submit(){const d=current();if(screen!=='work'||viewIndex!==session.index||session.answers[viewIndex]||session.mode==='speech'&&!view().task)return;const answer=$('answer').value;if(!answer.trim())return;const result=E.check(answer,d.turns[viewIndex]);if(result.status==='empty')return;const a={...result,answer,at:new Date().toISOString()};session.answers[viewIndex]=a;session.draft=answer;if(a.status==='unknown')journal.push({at:a.at,dialogueId:d.id,title:d.title,level:d.level,topic:d.topicLabel,mode:session.mode,context:d.context,partner:d.turns[viewIndex].en,partnerTranslation:d.turns[viewIndex].ru,stage:d.turns[viewIndex].stage||'',task:d.turns[viewIndex].task,answer,best:d.turns[viewIndex].best,turn:viewIndex+1});$('answer').blur();remember();save();variantsOpen=false;renderReview();}
   function next(){stop();if(screen!=='review')return;const d=current();if(viewIndex<session.index){viewIndex++;return openTurn();}if(!session.answers[session.index])return;session.index++;session.draft='';viewIndex=session.index;remember();save();variantsOpen=false;openTurn();}
   function renderEnding(){stop();setPhase('ending');const d=current(),audio=session.mode==='speech',v=session.endingView||(session.endingView={text:false,translation:false}),shown=!audio;page('ending',`<section class="screen ending-screen">${practiceTop()}<div class="ending-body panel">${shown?`<p class="english" lang="en">${esc(d.ending.en)}</p>${v.translation?`<p class="translation">${esc(d.ending.ru)}</p>`:''}`:`<div class="audio-main">${listen(true)}</div>`}<div class="partner-controls">${shown?listen(true):''}${shown?`<button type="button" class="toggle" data-action="ending-translation">${v.translation?'Скрыть перевод':'Перевод'}</button>`:''}</div></div>${nav('ending-back','Дальше','ending-next')}</section>`);}
-  function finish(){if(screen!=='ending')return;const d=current();if(!session.completedRecorded){if(!session.practiceReplay)completionCounts[d.id]=Math.min(Number.MAX_SAFE_INTEGER,P.count(completionCounts[d.id])+1);session.completedRecorded=true;}remember();save();renderDone();}
+  function finish(){
+    if(screen!=='ending')return;
+    const d=current();
+    if(!session.completedRecorded){
+      if(!session.practiceReplay){
+        completionCounts[d.id]=Math.min(Number.MAX_SAFE_INTEGER,P.count(completionCounts[d.id])+1);
+        const day=P.dayKey(new Date());
+        activity.days[day]=(activity.days[day]||0)+1;
+      }
+      session.completedRecorded=true;
+    }
+    remember();renderDone();
+  }
   function renderDone(){stop();setPhase('done');const d=current(),count=k=>session.answers.filter(a=>a.status===k||(k==='unknown'&&a.status==='revealed')).length;page('done',`<section class="screen done"><h1>Итог</h1><div class="done-content"><div class="stats">${[['correct','Верно'],['acceptable','Понятно'],['error','Ошибка'],['unknown',statusNames.unknown]].map(([k,label])=>`<div class="stat ${k}"><strong>${count(k)}</strong>${label}</div>`).join('')}</div></div><div class="done-actions"><button type="button" data-action="copy-all">Скопировать диалог</button><button type="button" data-action="replay">Пройти заново</button><button type="button" class="primary" data-action="home">Выход</button></div></section>`);}
   function renderHistory(tab='dialogues'){stop();const journalTab=tab==='journal';page(journalTab?'journal':'history',`<section class="screen">${top('История')}<div class="segments"><button type="button" data-action="history" aria-pressed="${!journalTab}">Диалоги · ${history.length}</button><button type="button" data-action="journal" aria-pressed="${journalTab}">Не распознано · ${journal.length}</button></div><div class="list-scroll">${journalTab?journalHTML():history.length?[...history].reverse().map(h=>`<article class="panel history-card"><div class="meta"><span>${h.index}/${h.dialogue.turns.length}</span></div><h2>${esc(h.dialogue.title)}</h2><div class="actions"><button type="button" data-history-view="${esc(h.runId)}">Открыть</button><button type="button" data-history-copy="${esc(h.runId)}">Скопировать</button></div></article>`).join(''):'<p class="empty">Пусто</p>'}</div>${journalTab?`<button type="button" class="primary" data-action="copy-journal" ${journal.length?'':'disabled'}>Скопировать все</button>`:'<button type="button" data-action="home">Назад</button>'}</section>`);}
+  function renderStatistics(){
+    stop();
+    const {total,undated,week,previous,weekTotal}=P.summarizeActivity(activity);
+    const range=new Intl.DateTimeFormat('ru',{day:'numeric',month:'long',year:'numeric'});
+    const fullDay=new Intl.DateTimeFormat('ru',{weekday:'long',day:'numeric',month:'long'});
+    const weekdays=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+    const dateRange=(start,end)=>{
+      if(start.getFullYear()===end.getFullYear()&&start.getMonth()===end.getMonth()){
+        return esc(`${start.getDate()}–${range.format(end)}`);
+      }
+      return esc(`${range.format(start)} — ${range.format(end)}`);
+    };
+    page('statistics',`<section class="screen activity-screen">
+      <h1>Статистика</h1>
+      <div class="list-scroll activity-content">
+        <div class="panel activity-total"><span>Всего пройдено</span><strong>${total}</strong></div>
+        <section class="activity-section">
+          <h2>Эта неделя</h2>
+          <div class="activity-row"><span>${dateRange(week[0].date,week[6].date)}</span><strong aria-label="${weekTotal} за эту неделю">${weekTotal}</strong></div>
+          <ol class="activity-days">${week.map((d,i)=>`<li ${d.today?'aria-current="date"':''} class="${d.future&&!d.count?'future':''}"><abbr title="${esc(fullDay.format(d.date))}">${weekdays[i]}</abbr><strong>${d.future&&!d.count?'—':d.count}</strong></li>`).join('')}</ol>
+        </section>
+        <section class="activity-section"><h2>Прошлые недели</h2>
+          ${previous.length?`<ul class="activity-weeks">${previous.map(w=>`<li class="activity-row"><span>${dateRange(w.start,w.end)}</span><strong>${w.count}</strong></li>`).join('')}</ul>`:'<p class="empty">Пока нет данных по прошлым неделям</p>'}
+        </section>
+        ${undated?`<p class="activity-undated">Из прежнего счётчика без даты · ${undated}</p>`:''}
+      </div>
+      <button type="button" data-action="home">Назад</button>
+    </section>`);
+  }
   function journalHTML(){return journal.length?[...journal].reverse().map(j=>`<article class="panel journal-entry"><p class="meta">${esc(j.title)} · ${esc(j.level)}</p><p lang="en">${esc(j.partner)}</p><p>${esc(j.task)}</p><blockquote lang="en">${esc(j.answer)}</blockquote><p class="best" lang="en">${esc(j.best)}</p></article>`).join(''):'<p class="empty">Пусто</p>';}
   function renderHistoryEntry(h){const d=h.dialogue;page('history-entry',`<section class="screen">${top(d.title)}<div class="list-scroll"><p class="context">${esc(d.context)}</p>${h.answers.map((a,i)=>{const t=d.turns[i];return `<article class="panel history-exchange">${t.stage?`<p class="scene-note">${esc(t.stage)}</p>`:''}<p class="english" lang="en">${esc(t.en)}</p><p class="translation">${esc(t.ru)}</p><p>${esc(t.task)}</p><span class="status ${a.status}">${statusNames[a.status]}</span>${annotated(a.answer,a)}${detail(a)}<div><p class="reference-label">Эталон</p><p class="best" lang="en">${esc(t.best)}</p></div></article>`;}).join('')}${h.index===d.turns.length?`<p class="english" lang="en">${esc(d.ending.en)}</p>`:''}</div>${nav('history','Скопировать','copy-entry')}</section>`);app.dataset.historyId=h.runId;}
   function dialogueText(d,source){return `Everyday · ${d.level} · ${d.topicLabel}\n${d.title}\nПредыстория: ${d.context}\n\n`+source.answers.map((a,i)=>{const t=d.turns[i];return `${t.stage?t.stage+'\n':''}${d.speaker}: ${t.en}\nПеревод: ${t.ru}\nЗадание: ${t.task}\nМой ответ: ${a.answer}\nОценка: ${statusNames[a.status]}${['error','acceptable'].includes(a.status)&&a.note?'\nПояснение: '+a.note:''}${a.correction?'\nИсправление: '+a.correction:''}\nЭталон: ${t.best}\nВарианты: ${E.preferred(t).join(' / ')}`;}).join('\n\n')+(source.index===d.turns.length?`\n\n${d.speaker}: ${d.ending.en}\nПеревод: ${d.ending.ru}`:'');}
@@ -2420,6 +2546,7 @@ root.DIALOGUES.find(d=>d.id==='batch-bus').turns[8].assessment.cases.error.push(
       case 'replay':{const d=current();settings.level=d.level;begin(d.id,true);break;}
       case 'copy-all':copy(dialogueText(current(),session));break;
       case 'history':renderHistory();break;
+      case 'statistics':renderStatistics();break;
       case 'journal':renderHistory('journal');break;
       case 'copy-journal':exportJournal();break;
       case 'copy-entry':{const h=history.find(x=>x.runId===app.dataset.historyId);if(h)copy(dialogueText(h.dialogue,h));break;}

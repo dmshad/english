@@ -53,4 +53,17 @@ assert.equal(withOmission.annotations.find(t=>t.text==='reservation').color,'cor
 const usualRegister=E.check('I am in the wrong bus. Blorven.',direction);
 assert.equal(usualRegister.status,'unknown');
 assert.equal(usualRegister.annotations.find(t=>t.text==='in').color,'acceptable');
+const inline=E.check('Oh, I need to sprock the glorp way.',direction);
+assert.equal(inline.status,'unknown');
+assert.equal(inline.annotations.find(t=>t.text==='need').color,'correct');
+assert.equal(inline.annotations.find(t=>t.text==='sprock').color,'neutral');
+assert.equal(inline.annotations.find(t=>t.text==='glorp').color,'neutral');
+assert.equal(inline.annotations.find(t=>t.text==='way').color,'neutral');
+const several=E.check('Blorven!I am in the wrong bus.\nI need go the other way. Glorp.',direction);
+assert.equal(several.status,'unknown');
+assert.deepEqual(Array.from(several.annotations.filter(t=>t.color==='neutral'),t=>t.text),['Blorven','Glorp']);
+assert.equal(several.annotations.find(t=>t.text==='in').color,'acceptable');
+assert.equal(several.annotations.find(t=>t.text==='go').color,'error');
+assert.equal(several.annotations.find(t=>t.text==='bus').color,'correct');
+assert.equal(several.diagnostics.length,2);
 console.log('Partial annotations passed: ordered matches, unknown words, neutral omissions, verified diagnostics and context.');

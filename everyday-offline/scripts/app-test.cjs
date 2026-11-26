@@ -55,6 +55,18 @@ const reset=setup(JSON.stringify({progressRevision:5,completedIds:['pilot-librar
 // All eight active dialogues pass through intro/work/review/result, and history evicts only snapshots.
 const runs=setup();for(const x of runs.all){runs.start(x);runs.click({action:'intro-next'});runs.finish(x);eq(runs.state().completionCounts[x.id],1);eq(runs.state().session.phase,'done');}
 eq(runs.state().history.length,6);eq(Object.keys(runs.state().completionCounts).length,8);
+const reloadedStats=setup(runs.store.get(KEY));
+reloadedStats.click({action:'statistics'});
+ok(reloadedStats.html().includes('Всего пройдено</span><strong>8</strong>'));
+ok(reloadedStats.html().includes('aria-label="8 за эту неделю"'));
+eq((reloadedStats.html().match(/<abbr /g)||[]).length,7);
+eq(P.summarizeActivity(resumedRepeat.state().activity).total,2);
+const rollup=P.summarizeActivity({undated:3,days:{'2025-12-28':2,'2025-12-29':1,'2026-01-04':3,'2026-01-05':4,'2026-01-06':5}},new Date(2026,0,6,12));
+eq(rollup.total,18);eq(rollup.weekTotal,9);eq(rollup.week[1].today,true);
+eq(rollup.week[2].future,true);eq(rollup.previous.map(w=>w.count).join(','),'4,2');
+const legacy=setup(JSON.stringify({progressFormat:2,progressRevision:6,completionCounts:{[d.id]:5},session:audio.state().session,history:audio.state().history}));
+eq(legacy.state().activity.undated,4);eq(P.summarizeActivity(legacy.state().activity).total,5);
+eq(P.summarizeActivity(setup(legacy.store.get(KEY)).state().activity).total,5);
 const snapshot=runs.state().history[0];runs.all.find(x=>x.id===snapshot.dialogue.id).turns[0].best='UNSAVED_REFERENCE';runs.click({historyView:snapshot.runId});ok(!runs.html().includes('UNSAVED_REFERENCE'));runs.click({historyCopy:snapshot.runId});ok(runs.el('copy-text').value.includes(snapshot.answers[0].answer));
 // Unknowns survive six-record history eviction and can be copied with their context.
 const unknown=setup();for(let i=0;i<7;i++){unknown.start(d);unknown.click({action:'intro-next'});unknown.answer('An unusual unrecognized sentence '+i);}
@@ -102,6 +114,7 @@ mixed.click({action:'toggle-text'});eq(mixed.state().session.phase,'review');mix
 const marks=setup(runs.store.get(KEY));marks.click({action:'catalog'});ok(marks.html().includes('data-mark="'+d.id+'"'));ok(!marks.html().includes('id="topic"'));marks.click({mark:d.id});eq(marks.state().completionCounts[d.id],1);ok(marks.el('mark-dialog').open);marks.el('cancel-mark').handlers.click();eq(marks.state().completionCounts[d.id],1);
 marks.click({mark:d.id});marks.el('mark-dialog').handlers.close();marks.el('confirm-mark').handlers.click();eq(marks.state().completionCounts[d.id],0);eq(marks.state().latestResults[d.id].counts.correct,10);eq(marks.state().history.length,6);
 marks.click({mark:d.id});marks.el('confirm-mark').handlers.click();eq(marks.state().completionCounts[d.id],1);marks.click({dialogue:d.id});ok(marks.html().includes('class="last-stats"'));ok(marks.html().includes('data-action="start-selected"'));
+eq(P.summarizeActivity(marks.state().activity).total,8);
 // Summary remains after its full snapshot leaves the six-entry history.
 ok(!runs.state().history.some(h=>h.dialogue.id===runs.all[0].id));eq(runs.state().latestResults[runs.all[0].id].counts.correct,10);
 // Summing modes happens once; pending old sessions still resume without losing drafts.

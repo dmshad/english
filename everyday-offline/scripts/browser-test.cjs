@@ -35,6 +35,11 @@ for(const d of all){
   assert.equal((await state()).completionCounts[d.id],1);assert.equal(await run('document.querySelector(".stat.correct strong").textContent'),'10');await fits(d.id+' done');
 }
 assert.equal((await state()).history.length,6);assert.equal(Object.keys((await state()).completionCounts).length,8);
+await click('[data-action=home]');await click('[data-action=statistics]');
+assert.equal(await run('document.querySelector(".activity-total strong").textContent'),'8');
+assert.equal(await run('document.querySelector(".activity-days [aria-current=date] strong").textContent'),'8');
+assert.equal(await run('document.querySelectorAll(".activity-days li").length'),7);
+await fits('statistics390');await shot('statistics-light');
 await click('[data-action=home]');await click('[data-action=catalog]');await fits('catalog');await shot('catalog');
 assert.equal(await run('document.querySelectorAll(".catalog-topic").length'),8);assert.equal(await run('document.querySelectorAll(".completion-dot").length'),8);
 await click('[data-mark="'+all[0].id+'"]');assert.equal(await run('document.querySelector("#mark-dialog").open'),true);assert.equal((await state()).completionCounts[all[0].id],1);await shot('mark-confirmation');await click('#cancel-mark');assert.equal((await state()).completionCounts[all[0].id],1);
@@ -62,6 +67,9 @@ assert.equal((await state()).completionCounts[d.id],2);
 await click('[data-action=home]');await click('[data-action=history]');assert.equal(await run('document.querySelectorAll("[data-history-view]").length'),6);await fits('history');await click('[data-action=journal]');assert.equal(await run('document.querySelector("[data-action=copy-journal]").disabled'),true);await click('[data-action=home]');
 // iPhone SE proportions, then keyboard-sized viewport with focused answer.
 await send('Emulation.setDeviceMetricsOverride',{width:375,height:667,deviceScaleFactor:1,mobile:true});await wait(100);await fits('home375');await fits('home375-fixed');await choose(d);await click('[data-action=home]');await fits('speech-home375-resume');assert.equal(await run('document.querySelector("[data-action=history]").getBoundingClientRect().top>document.querySelector("[data-action=start]").getBoundingClientRect().bottom'),true);await choose(d);await click('[data-action=intro-next]');await fits('work375');await shot('work-small');
+await click('[data-action=home]');await click('[data-action=statistics]');await fits('statistics375');
+assert.equal(await run('document.querySelector(".activity-total strong").textContent'),'9');
+await shot('statistics-dark');await click('[data-action=home]');await click('[data-action=resume]');
 await run('document.querySelector("#answer").focus()');await send('Emulation.setDeviceMetricsOverride',{width:375,height:380,deviceScaleFactor:1,mobile:true});await wait(150);assert.equal(await run('document.body.classList.contains("keyboard-open")'),true);assert.equal(await run('document.documentElement.scrollHeight>innerHeight'),true);
 await run('document.querySelector("#answer").blur()');await send('Emulation.setDeviceMetricsOverride',{width:375,height:667,deviceScaleFactor:1,mobile:true});await wait(150);
 await answer('<img src=x onerror=alert(1)>');assert.equal(await run('Boolean(document.querySelector("#app img"))'),false);assert.equal((await state()).journal.length,1);await click('[data-action=home]');await click('[data-action=history]');await click('[data-action=journal]');await click('[data-action=copy-journal]');await wait(40);assert.ok((await run('document.querySelector("#copy-text").value')).startsWith('Нераспознанные ответы из приложения Everyday'));assert.equal((await state()).journal.length,1);await click('#close-copy');assert.equal((await state()).journal.length,1);
@@ -71,11 +79,12 @@ await choose(d);await click('[data-action=intro-next]');await answer('Another un
 
 const hotel=all.find(d=>d.id==='batch-hotel');
 await choose(hotel);await click('[data-action=intro-next]');
-await answer('I has a reservation under Anna. Blorven.');
+await answer('I has a reservation under Anna!Blorven.\nI have a reservation under Anna.');
 assert.equal(await run('document.querySelector(".status.unknown").textContent'),'Не распознано');
 assert.equal(await run('document.querySelector(".word-error").textContent'),'has');
 assert.equal(await run('document.querySelector(".word-neutral").textContent'),'Blorven');
 assert.equal(await run('document.querySelector(".word-correct").textContent'),'I');
+assert.equal(await run('[...document.querySelectorAll(".word-correct")].at(-1).textContent'),'Anna');
 assert.equal((await state()).latestResults[hotel.id].counts.unknown,1);
 assert.equal((await state()).latestResults[hotel.id].counts.error,0);
 await fits('mixed review375');await shot('mixed-review');
@@ -83,8 +92,25 @@ await click('[data-action=home]');await click('[data-action=history]');
 await click('[data-history-view="'+(await state()).history.at(-1).runId+'"]');
 assert.equal(await run('document.querySelector(".word-error").textContent'),'has');
 assert.equal(await run('document.querySelector(".word-neutral").textContent'),'Blorven');
+await run(`(() => {
+  const key='everyday-offline-v1';
+  const saved=JSON.parse(localStorage.getItem(key));
+  for (const [offset,count] of [[7,16],[14,24]]) {
+    const day=new Date();
+    day.setDate(day.getDate()-offset);
+    saved.activity.days[OfflineProgress.dayKey(day)]=count;
+  }
+  saved.activity.undated=3;
+  localStorage.setItem(key,JSON.stringify(saved));
+  location.reload();
+})()`);
+for(let i=0;i<50;i++){if(await run('Boolean(document.querySelector("[data-action=statistics]"))'))break;await wait(100);}
+await click('[data-action=statistics]');
+assert.equal(await run('document.querySelector(".activity-total strong").textContent'),'52');
+assert.equal(await run('[...document.querySelectorAll(".activity-weeks strong")].map(e=>e.textContent).join(",")'),'16,24');
+await fits('statistics archive375');await shot('statistics-archive');
 await send('Emulation.setDeviceMetricsOverride',{width:1280,height:900,deviceScaleFactor:1,mobile:false});await wait(100);await fits('desktop');
 assert.deepEqual(errors,[],'JS exceptions');assert.deepEqual(requests,[],'Unexpected network requests');
-console.log('Chrome file:// OFFLINE passed: eight full text runs, one speech run with stubbed audio, unified counters, catalogue and confirmation, intro/scenes/review/ending/result, Ava Premium selection, fixed panels, 390×844/375×667/desktop, keyboard viewport, themes, history/copy/journal, no JS exceptions or network requests.');
+console.log('Chrome file:// OFFLINE passed: eight full text runs, one speech run with stubbed audio, unified counters, completion statistics, catalogue and confirmation, intro/scenes/review/ending/result, mixed feedback, Ava Premium selection, fixed panels, 390×844/375×667/desktop, keyboard viewport, themes, history/copy/journal, no JS exceptions or network requests.');
 }finally{ws.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

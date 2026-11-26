@@ -1,6 +1,6 @@
 (function(){
   'use strict';
-  window.APP_VERSION='0.13.1';
+  window.APP_VERSION='0.14';
   const $=id=>document.getElementById(id),app=$('app'),E=window.OfflineEngine,P=window.OfflineProgress,S=window.OfflineSpeech;
   const dialogues=window.DIALOGUES.filter(d=>d.checking==='construction'),KEY='everyday-offline-v1';
   const statusNames={correct:'Верно',acceptable:'Понятно, но обычно так не говорят или неуместно в этой ситуации',error:'Ошибка',unknown:'Не распознано',revealed:'Не определено'};
@@ -24,10 +24,11 @@
   const stored=dialogues.find(d=>d.id===session?.id);
   if(contentUpdated||!stored||!Number.isInteger(session?.index)||session.index<0||session.index>stored.turns.length||!Array.isArray(session.answers)||session.answers.length<session.index||session.answers.length>stored.turns.length||!session.answers.every(validAnswer))session=null;
   if(session){if(!Number.isInteger(session.viewIndex)||session.viewIndex<0||session.viewIndex>session.index)session.viewIndex=session.index;session.mode=session.mode==='speech'?'speech':'text';session.draft=typeof session.draft==='string'?session.draft:'';session.views=session.views&&typeof session.views==='object'?session.views:{};session.runId=typeof session.runId==='string'?session.runId:runId();session.completedRecorded=typeof session.completedRecorded==='boolean'?session.completedRecorded:session.index===stored.turns.length;session.phase=['intro','stage','work','review','ending','done'].includes(session.phase)?session.phase:session.index===stored.turns.length?'done':session.answers[session.index]?'review':'work';}
+  const activity=P.restoreActivity(saved,session,history);
   let screen='home',viewIndex=session?.index||0,variantsOpen=false,toastTimer,selectedId=null,pendingMark=null,copyingJournal=false,pendingCopyBatch=null;
   function runId(){return Date.now()+'-'+Math.random().toString(36).slice(2);}
   function current(){return dialogues.find(d=>d.id===session?.id);}
-  function save(){try{localStorage.setItem(KEY,JSON.stringify({version:5,progressFormat:2,progressRevision:window.CONTENT_REVISION,settings,completionCounts,topicOrder,latestResults,history,journal,session}));}catch(_){persistent=false;}}
+  function save(){try{localStorage.setItem(KEY,JSON.stringify({version:5,progressFormat:2,progressRevision:window.CONTENT_REVISION,settings,completionCounts,activity,topicOrder,latestResults,history,journal,session}));}catch(_){persistent=false;}}
   function applyTheme(){document.documentElement.dataset.theme=settings.theme;document.querySelector('meta[name="theme-color"]')?.setAttribute('content',settings.theme==='dark'?'#111014':'#f5f7fb');}
   function toast(t){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,2600);}
   function stop(){S.stop();}
@@ -44,7 +45,7 @@
       ${levels()}
       ${`<div class="field"><label for="voice-choice" class="field-label">Голос</label><select id="voice-choice"><option value="">Автоматически</option>${S.localVoices().map(v=>`<option value="${esc(S.key(v))}" ${S.key(v)===settings.voiceURI?'selected':''}>${esc(v.name)} · ${esc(v.lang)}</option>`).join('')}${settings.voiceURI&&!S.voice(settings.voiceURI)?`<option value="${esc(settings.voiceURI)}" selected disabled>${settings.voiceURI==='@ava-premium'?'Ava (Premium) недоступен':'Выбранный голос недоступен'}</option>`:''}</select></div>`}
       <div class="home-actions">${session&&session.phase!=='done'?'<button type="button" data-action="resume">Продолжить</button>':''}<button type="button" data-action="catalog">Выбрать диалог</button><button type="button" class="primary" data-action="start" ${choices().length?'':'disabled'}>Начать следующий диалог</button></div>
-      <button type="button" class="home-history" data-action="history">История</button>${!persistent?'<p class="storage-error" role="status">Сохранение недоступно</p>':''}${contentUpdated?'<p class="storage-error" role="status">Сюжет обновлен. Начни диалог заново.</p>':''}</section>`);
+      <div class="segments home-history"><button type="button" data-action="statistics">Статистика</button><button type="button" data-action="history">История</button></div>${!persistent?'<p class="storage-error" role="status">Сохранение недоступно</p>':''}${contentUpdated?'<p class="storage-error" role="status">Сюжет обновлен. Начни диалог заново.</p>':''}</section>`);
   }
   function home(){stop();save();renderHome();}
   function begin(id,practiceReplay=false){
@@ -104,9 +105,50 @@
   function submit(){const d=current();if(screen!=='work'||viewIndex!==session.index||session.answers[viewIndex]||session.mode==='speech'&&!view().task)return;const answer=$('answer').value;if(!answer.trim())return;const result=E.check(answer,d.turns[viewIndex]);if(result.status==='empty')return;const a={...result,answer,at:new Date().toISOString()};session.answers[viewIndex]=a;session.draft=answer;if(a.status==='unknown')journal.push({at:a.at,dialogueId:d.id,title:d.title,level:d.level,topic:d.topicLabel,mode:session.mode,context:d.context,partner:d.turns[viewIndex].en,partnerTranslation:d.turns[viewIndex].ru,stage:d.turns[viewIndex].stage||'',task:d.turns[viewIndex].task,answer,best:d.turns[viewIndex].best,turn:viewIndex+1});$('answer').blur();remember();save();variantsOpen=false;renderReview();}
   function next(){stop();if(screen!=='review')return;const d=current();if(viewIndex<session.index){viewIndex++;return openTurn();}if(!session.answers[session.index])return;session.index++;session.draft='';viewIndex=session.index;remember();save();variantsOpen=false;openTurn();}
   function renderEnding(){stop();setPhase('ending');const d=current(),audio=session.mode==='speech',v=session.endingView||(session.endingView={text:false,translation:false}),shown=!audio;page('ending',`<section class="screen ending-screen">${practiceTop()}<div class="ending-body panel">${shown?`<p class="english" lang="en">${esc(d.ending.en)}</p>${v.translation?`<p class="translation">${esc(d.ending.ru)}</p>`:''}`:`<div class="audio-main">${listen(true)}</div>`}<div class="partner-controls">${shown?listen(true):''}${shown?`<button type="button" class="toggle" data-action="ending-translation">${v.translation?'Скрыть перевод':'Перевод'}</button>`:''}</div></div>${nav('ending-back','Дальше','ending-next')}</section>`);}
-  function finish(){if(screen!=='ending')return;const d=current();if(!session.completedRecorded){if(!session.practiceReplay)completionCounts[d.id]=Math.min(Number.MAX_SAFE_INTEGER,P.count(completionCounts[d.id])+1);session.completedRecorded=true;}remember();save();renderDone();}
+  function finish(){
+    if(screen!=='ending')return;
+    const d=current();
+    if(!session.completedRecorded){
+      if(!session.practiceReplay){
+        completionCounts[d.id]=Math.min(Number.MAX_SAFE_INTEGER,P.count(completionCounts[d.id])+1);
+        const day=P.dayKey(new Date());
+        activity.days[day]=(activity.days[day]||0)+1;
+      }
+      session.completedRecorded=true;
+    }
+    remember();renderDone();
+  }
   function renderDone(){stop();setPhase('done');const d=current(),count=k=>session.answers.filter(a=>a.status===k||(k==='unknown'&&a.status==='revealed')).length;page('done',`<section class="screen done"><h1>Итог</h1><div class="done-content"><div class="stats">${[['correct','Верно'],['acceptable','Понятно'],['error','Ошибка'],['unknown',statusNames.unknown]].map(([k,label])=>`<div class="stat ${k}"><strong>${count(k)}</strong>${label}</div>`).join('')}</div></div><div class="done-actions"><button type="button" data-action="copy-all">Скопировать диалог</button><button type="button" data-action="replay">Пройти заново</button><button type="button" class="primary" data-action="home">Выход</button></div></section>`);}
   function renderHistory(tab='dialogues'){stop();const journalTab=tab==='journal';page(journalTab?'journal':'history',`<section class="screen">${top('История')}<div class="segments"><button type="button" data-action="history" aria-pressed="${!journalTab}">Диалоги · ${history.length}</button><button type="button" data-action="journal" aria-pressed="${journalTab}">Не распознано · ${journal.length}</button></div><div class="list-scroll">${journalTab?journalHTML():history.length?[...history].reverse().map(h=>`<article class="panel history-card"><div class="meta"><span>${h.index}/${h.dialogue.turns.length}</span></div><h2>${esc(h.dialogue.title)}</h2><div class="actions"><button type="button" data-history-view="${esc(h.runId)}">Открыть</button><button type="button" data-history-copy="${esc(h.runId)}">Скопировать</button></div></article>`).join(''):'<p class="empty">Пусто</p>'}</div>${journalTab?`<button type="button" class="primary" data-action="copy-journal" ${journal.length?'':'disabled'}>Скопировать все</button>`:'<button type="button" data-action="home">Назад</button>'}</section>`);}
+  function renderStatistics(){
+    stop();
+    const {total,undated,week,previous,weekTotal}=P.summarizeActivity(activity);
+    const range=new Intl.DateTimeFormat('ru',{day:'numeric',month:'long',year:'numeric'});
+    const fullDay=new Intl.DateTimeFormat('ru',{weekday:'long',day:'numeric',month:'long'});
+    const weekdays=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+    const dateRange=(start,end)=>{
+      if(start.getFullYear()===end.getFullYear()&&start.getMonth()===end.getMonth()){
+        return esc(`${start.getDate()}–${range.format(end)}`);
+      }
+      return esc(`${range.format(start)} — ${range.format(end)}`);
+    };
+    page('statistics',`<section class="screen activity-screen">
+      <h1>Статистика</h1>
+      <div class="list-scroll activity-content">
+        <div class="panel activity-total"><span>Всего пройдено</span><strong>${total}</strong></div>
+        <section class="activity-section">
+          <h2>Эта неделя</h2>
+          <div class="activity-row"><span>${dateRange(week[0].date,week[6].date)}</span><strong aria-label="${weekTotal} за эту неделю">${weekTotal}</strong></div>
+          <ol class="activity-days">${week.map((d,i)=>`<li ${d.today?'aria-current="date"':''} class="${d.future&&!d.count?'future':''}"><abbr title="${esc(fullDay.format(d.date))}">${weekdays[i]}</abbr><strong>${d.future&&!d.count?'—':d.count}</strong></li>`).join('')}</ol>
+        </section>
+        <section class="activity-section"><h2>Прошлые недели</h2>
+          ${previous.length?`<ul class="activity-weeks">${previous.map(w=>`<li class="activity-row"><span>${dateRange(w.start,w.end)}</span><strong>${w.count}</strong></li>`).join('')}</ul>`:'<p class="empty">Пока нет данных по прошлым неделям</p>'}
+        </section>
+        ${undated?`<p class="activity-undated">Из прежнего счётчика без даты · ${undated}</p>`:''}
+      </div>
+      <button type="button" data-action="home">Назад</button>
+    </section>`);
+  }
   function journalHTML(){return journal.length?[...journal].reverse().map(j=>`<article class="panel journal-entry"><p class="meta">${esc(j.title)} · ${esc(j.level)}</p><p lang="en">${esc(j.partner)}</p><p>${esc(j.task)}</p><blockquote lang="en">${esc(j.answer)}</blockquote><p class="best" lang="en">${esc(j.best)}</p></article>`).join(''):'<p class="empty">Пусто</p>';}
   function renderHistoryEntry(h){const d=h.dialogue;page('history-entry',`<section class="screen">${top(d.title)}<div class="list-scroll"><p class="context">${esc(d.context)}</p>${h.answers.map((a,i)=>{const t=d.turns[i];return `<article class="panel history-exchange">${t.stage?`<p class="scene-note">${esc(t.stage)}</p>`:''}<p class="english" lang="en">${esc(t.en)}</p><p class="translation">${esc(t.ru)}</p><p>${esc(t.task)}</p><span class="status ${a.status}">${statusNames[a.status]}</span>${annotated(a.answer,a)}${detail(a)}<div><p class="reference-label">Эталон</p><p class="best" lang="en">${esc(t.best)}</p></div></article>`;}).join('')}${h.index===d.turns.length?`<p class="english" lang="en">${esc(d.ending.en)}</p>`:''}</div>${nav('history','Скопировать','copy-entry')}</section>`);app.dataset.historyId=h.runId;}
   function dialogueText(d,source){return `Everyday · ${d.level} · ${d.topicLabel}\n${d.title}\nПредыстория: ${d.context}\n\n`+source.answers.map((a,i)=>{const t=d.turns[i];return `${t.stage?t.stage+'\n':''}${d.speaker}: ${t.en}\nПеревод: ${t.ru}\nЗадание: ${t.task}\nМой ответ: ${a.answer}\nОценка: ${statusNames[a.status]}${['error','acceptable'].includes(a.status)&&a.note?'\nПояснение: '+a.note:''}${a.correction?'\nИсправление: '+a.correction:''}\nЭталон: ${t.best}\nВарианты: ${E.preferred(t).join(' / ')}`;}).join('\n\n')+(source.index===d.turns.length?`\n\n${d.speaker}: ${d.ending.en}\nПеревод: ${d.ending.ru}`:'');}
@@ -145,6 +187,7 @@
       case 'replay':{const d=current();settings.level=d.level;begin(d.id,true);break;}
       case 'copy-all':copy(dialogueText(current(),session));break;
       case 'history':renderHistory();break;
+      case 'statistics':renderStatistics();break;
       case 'journal':renderHistory('journal');break;
       case 'copy-journal':exportJournal();break;
       case 'copy-entry':{const h=history.find(x=>x.runId===app.dataset.historyId);if(h)copy(dialogueText(h.dialogue,h));break;}
