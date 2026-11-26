@@ -3,7 +3,7 @@
 (function(root){
   'use strict';
   const contractions={"you've":"you have","they're":"they are","wasn't":"was not","weren't":"were not","didn't":"did not","haven't":"have not","i'm":'i am',"we're":'we are',"you're":'you are',"it's":'it is',"that's":'that is',"there's":'there is',"where's":'where is',"what's":'what is',"i'd":'i would',"we'd":'we would',"i'll":'i will',"we'll":'we will',"i've":'i have',"we've":'we have',"don't":'do not',"doesn't":'does not',"can't":'cannot',"isn't":'is not',"aren't":'are not',"won't":'will not',"wouldn't":'would not',"couldn't":'could not',"let's":'let us'};
-  function normalize(text,frame){return String(text).normalize('NFKC').toLowerCase().replace(/[’‘]/g,"'").replace(/\b(i|we|you|he|she|they)'d better\b/g,'$1 had better').replace(/\b[a-z]+'[a-z]+\b/g,w=>contractions[w]||w).replace(/\b([a-z]+)'s\b/g,(w,stem)=>frame?.beContractions?.includes(stem)?stem+' is':w).replace(/[^a-z0-9'\s]/g,' ').replace(/\s+/g,' ').trim();}
+  function normalize(text,frame){return String(text).normalize('NFKC').toLowerCase().replace(/[’‘]/g,"'").replace(/\b(i|we|you|he|she|they)'d better\b/g,'$1 had better').replace(/\b[a-z]+'[a-z]+\b/g,w=>w==="there're"&&frame?.allowThereAre?'there are':contractions[w]||w).replace(/\b([a-z]+)'s\b/g,(w,stem)=>frame?.beContractions?.includes(stem)?stem+' is':w).replace(/[^a-z0-9'\s]/g,' ').replace(/\s+/g,' ').trim();}
   function edges(text){
     let core=text;const blocks=[];
     const take=(re,role,last=false)=>{const m=core.match(re);if(!m)return false;blocks.push({role,text:m[0].trim()});core=last?core.slice(0,m.index).trim():core.slice(m[0].length).trim();return true;};
@@ -293,6 +293,39 @@
     [/^i am want\b/,'i want','extra-am','Перед want здесь не нужен am: I want.'],
     [/^my name anna$/,'my name is anna','missing-is','В полной фразе нужно my name is Anna.']
   ];
+  function spellingError({core,blocks,polite,affirmed},frame){
+    const corrections=frame.spellingCorrections;
+    if(!corrections)return null;
+    const words=core.split(' ');
+    const typos=words.filter(word=>Object.hasOwn(corrections,word));
+    if(typos.length!==1)return null;
+    const [typo]=typos,spelling=corrections[typo];
+    const fixed=words.map(word=>word===typo?spelling:word).join(' ');
+    const parsed=parse(fixed,frame,blocks,polite,affirmed);
+    if(parsed?.status!=='correct')return null;
+    return bad('spelling',typo,`Опечатка: «${typo}» → «${spelling}».`,fixed,parsed.blocks);
+  }
+  const replyOpening=/^(?:(?:oh|oops|but|then|no|actually) )*/;
+  const firstPersonVerb=/^(?:(?:already|still) have|(?:(?:just|still|really|already|usually|normally) )?(?:am|can|cannot|could|will|would|might|should|need|want|think|guess|hope|feel|like|love|got|saw|found|brought|booked|remember|(?:do|did|have) not|have got|had better))\b/;
+  function firstPersonEllipsis(e,turn){
+    const frame=turn.assessment;
+    const opening=e.core.match(replyOpening)[0];
+    const predicate=e.core.slice(opening.length);
+    if(!predicate||/^(?:i|you|we|they|he|she|it|there)\b/.test(predicate))return null;
+    if(!turn.natural.some(example=>{
+      const reply=edges(normalize(example,frame)).core.replace(replyOpening,'');
+      return /^i /.test(reply);
+    }))return null;
+    const subjects=firstPersonVerb.test(predicate)?['i ','i am ']:['i am '];
+    let acceptable=null;
+    for(const subject of subjects){
+      const expanded=opening+subject+predicate;
+      const result=parse(expanded,frame,e.blocks,e.polite,e.affirmed);
+      if(result?.status==='correct')return result;
+      if(result?.status==='acceptable')acceptable=result;
+    }
+    return acceptable;
+  }
   function evaluate(answer,turn){
     const frame=turn.assessment;
     let text=normalize(answer,frame);
@@ -313,6 +346,10 @@
         const fixed=e.core.replace(pattern,replacement),parsed=parse(fixed,frame,e.blocks,e.polite,e.affirmed);
         if(parsed&&['correct','acceptable','error'].includes(parsed.status)){result=bad(code,e.core.match(pattern)[0],note,fixed,parsed.blocks);break;}
       }
+    }
+    if(!result||result.status==='unknown'){
+      const impliedI=/\?[?!]*\s*$/.test(answer)?null:firstPersonEllipsis(e,turn);
+      result=impliedI||spellingError(e,frame)||result;
     }
     return {...(result||unknown('',e.blocks)),method:'construction',assessmentVersion:'pilot-1'};
   }
@@ -412,7 +449,7 @@
     const ends=[...answer.matchAll(clauseBoundary)].map(m=>m.index+m[0].length);
     for(const end of [...ends,answer.length]){
       while(stop<tokens.length&&tokens[stop].start<end)stop++;
-      if(stop>start)parts.push(tokens.slice(start,stop));
+      if(stop>start)parts.push({tokens:tokens.slice(start,stop),end});
       start=stop;
     }
     if(parts.length<2){
@@ -425,8 +462,8 @@
       return clauses.length>1?clauses.filter(clause=>tokenize(clause).length>=2):[];
     });
     const references=[...turn.natural,...referenceClauses];
-    for(const part of parts){
-      const text=answer.slice(part[0].start,part.at(-1).end);
+    for(const {tokens:part,end} of parts){
+      const text=answer.slice(part[0].start,end);
       const result=evaluate(text,turn);
       const partUnits=comparisonUnits(part,frame);
       if(result.status==='unknown'){
@@ -436,7 +473,7 @@
         markRequestPrefix(part,partUnits,result.partialRequest);
         continue;
       }
-      if(part.length===1&&result.status!=='correct')continue;
+      if(part.length===1&&result.status!=='correct'&&result.code!=='spelling')continue;
       insertions.push(...annotate(part,partUnits,result));
       diagnostics.push(...(result.diagnostics||(['error','acceptable'].includes(result.status)?[result]:[])));
     }
@@ -450,7 +487,7 @@
     const feedback=result.status==='unknown'
       ?annotateUnknown(answer,tokens,units,turn,result)
       :{insertions:annotate(tokens,units,result)};
-    return {...result,annotations:tokens,...feedback,orthographyNote:(turn.assessment.allowLets?/^\s*lets\s+/i:/^\s*lets\s+(?:watch|see|go|choose|pick)\b/i).test(answer)?'Разговорное lets принимается без снижения оценки; стандартное написание — let’s.':null,assessmentVersion:'pilot-5'};
+    return {...result,annotations:tokens,...feedback,orthographyNote:(turn.assessment.allowLets?/^\s*lets\s+/i:/^\s*lets\s+(?:watch|see|go|choose|pick)\b/i).test(answer)?'Разговорное lets принимается без снижения оценки; стандартное написание — let’s.':null,assessmentVersion:'pilot-8'};
   }
   root.StructuredAssessment={check,normalize,nounPhrase,request};
   if(typeof module!=='undefined')module.exports=root.StructuredAssessment;

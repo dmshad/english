@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-visual">
   <meta name="theme-color" content="#f5f7fb">
-  <meta name="application-version" content="0.14">
+  <meta name="application-version" content="0.14.4">
   <title>Everyday</title>
   <style>
 :root{color-scheme:light;--bg:#f5f7fb;--panel:#fff;--soft:#eaf0f4;--ink:#192a37;--muted:#536370;--line:#dce3e9;--accent:#166c58;--accent-soft:#e7f2ed;--green:#126048;--green-bg:#def0e5;--yellow:#805000;--yellow-bg:#fff0ba;--red:#9c201d;--red-bg:#ffdcd9;--gray:#536370;--gray-bg:#e9edf2;--app-height:100svh;font:20px/1.4 ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
@@ -43,7 +43,7 @@ button.version{border:0;background:transparent;padding:6px 4px;min-width:64px;mi
 <body>
   <header class="site-header">
     <a href="#" id="home-link" class="brand" aria-label="Everyday — на главную"><span class="brand-mark" aria-hidden="true">e.</span>everyday</a>
-    <button type="button" id="update-version" class="version" aria-label="Проверить обновления">v0.14</button>
+    <button type="button" id="update-version" class="version" aria-label="Проверить обновления">v0.14.4</button>
   </header>
   <main id="app"></main>
   <div id="toast" role="status" class="toast" hidden></div>
@@ -1129,7 +1129,7 @@ button.version{border:0;background:transparent;padding:6px 4px;min-width:64px;mi
 (function(root){
   'use strict';
   const contractions={"you've":"you have","they're":"they are","wasn't":"was not","weren't":"were not","didn't":"did not","haven't":"have not","i'm":'i am',"we're":'we are',"you're":'you are',"it's":'it is',"that's":'that is',"there's":'there is',"where's":'where is',"what's":'what is',"i'd":'i would',"we'd":'we would',"i'll":'i will',"we'll":'we will',"i've":'i have',"we've":'we have',"don't":'do not',"doesn't":'does not',"can't":'cannot',"isn't":'is not',"aren't":'are not',"won't":'will not',"wouldn't":'would not',"couldn't":'could not',"let's":'let us'};
-  function normalize(text,frame){return String(text).normalize('NFKC').toLowerCase().replace(/[’‘]/g,"'").replace(/\b(i|we|you|he|she|they)'d better\b/g,'$1 had better').replace(/\b[a-z]+'[a-z]+\b/g,w=>contractions[w]||w).replace(/\b([a-z]+)'s\b/g,(w,stem)=>frame?.beContractions?.includes(stem)?stem+' is':w).replace(/[^a-z0-9'\s]/g,' ').replace(/\s+/g,' ').trim();}
+  function normalize(text,frame){return String(text).normalize('NFKC').toLowerCase().replace(/[’‘]/g,"'").replace(/\b(i|we|you|he|she|they)'d better\b/g,'$1 had better').replace(/\b[a-z]+'[a-z]+\b/g,w=>w==="there're"&&frame?.allowThereAre?'there are':contractions[w]||w).replace(/\b([a-z]+)'s\b/g,(w,stem)=>frame?.beContractions?.includes(stem)?stem+' is':w).replace(/[^a-z0-9'\s]/g,' ').replace(/\s+/g,' ').trim();}
   function edges(text){
     let core=text;const blocks=[];
     const take=(re,role,last=false)=>{const m=core.match(re);if(!m)return false;blocks.push({role,text:m[0].trim()});core=last?core.slice(0,m.index).trim():core.slice(m[0].length).trim();return true;};
@@ -1419,6 +1419,39 @@ button.version{border:0;background:transparent;padding:6px 4px;min-width:64px;mi
     [/^i am want\b/,'i want','extra-am','Перед want здесь не нужен am: I want.'],
     [/^my name anna$/,'my name is anna','missing-is','В полной фразе нужно my name is Anna.']
   ];
+  function spellingError({core,blocks,polite,affirmed},frame){
+    const corrections=frame.spellingCorrections;
+    if(!corrections)return null;
+    const words=core.split(' ');
+    const typos=words.filter(word=>Object.hasOwn(corrections,word));
+    if(typos.length!==1)return null;
+    const [typo]=typos,spelling=corrections[typo];
+    const fixed=words.map(word=>word===typo?spelling:word).join(' ');
+    const parsed=parse(fixed,frame,blocks,polite,affirmed);
+    if(parsed?.status!=='correct')return null;
+    return bad('spelling',typo,`Опечатка: «${typo}» → «${spelling}».`,fixed,parsed.blocks);
+  }
+  const replyOpening=/^(?:(?:oh|oops|but|then|no|actually) )*/;
+  const firstPersonVerb=/^(?:(?:already|still) have|(?:(?:just|still|really|already|usually|normally) )?(?:am|can|cannot|could|will|would|might|should|need|want|think|guess|hope|feel|like|love|got|saw|found|brought|booked|remember|(?:do|did|have) not|have got|had better))\b/;
+  function firstPersonEllipsis(e,turn){
+    const frame=turn.assessment;
+    const opening=e.core.match(replyOpening)[0];
+    const predicate=e.core.slice(opening.length);
+    if(!predicate||/^(?:i|you|we|they|he|she|it|there)\b/.test(predicate))return null;
+    if(!turn.natural.some(example=>{
+      const reply=edges(normalize(example,frame)).core.replace(replyOpening,'');
+      return /^i /.test(reply);
+    }))return null;
+    const subjects=firstPersonVerb.test(predicate)?['i ','i am ']:['i am '];
+    let acceptable=null;
+    for(const subject of subjects){
+      const expanded=opening+subject+predicate;
+      const result=parse(expanded,frame,e.blocks,e.polite,e.affirmed);
+      if(result?.status==='correct')return result;
+      if(result?.status==='acceptable')acceptable=result;
+    }
+    return acceptable;
+  }
   function evaluate(answer,turn){
     const frame=turn.assessment;
     let text=normalize(answer,frame);
@@ -1439,6 +1472,10 @@ button.version{border:0;background:transparent;padding:6px 4px;min-width:64px;mi
         const fixed=e.core.replace(pattern,replacement),parsed=parse(fixed,frame,e.blocks,e.polite,e.affirmed);
         if(parsed&&['correct','acceptable','error'].includes(parsed.status)){result=bad(code,e.core.match(pattern)[0],note,fixed,parsed.blocks);break;}
       }
+    }
+    if(!result||result.status==='unknown'){
+      const impliedI=/\?[?!]*\s*$/.test(answer)?null:firstPersonEllipsis(e,turn);
+      result=impliedI||spellingError(e,frame)||result;
     }
     return {...(result||unknown('',e.blocks)),method:'construction',assessmentVersion:'pilot-1'};
   }
@@ -1538,7 +1575,7 @@ button.version{border:0;background:transparent;padding:6px 4px;min-width:64px;mi
     const ends=[...answer.matchAll(clauseBoundary)].map(m=>m.index+m[0].length);
     for(const end of [...ends,answer.length]){
       while(stop<tokens.length&&tokens[stop].start<end)stop++;
-      if(stop>start)parts.push(tokens.slice(start,stop));
+      if(stop>start)parts.push({tokens:tokens.slice(start,stop),end});
       start=stop;
     }
     if(parts.length<2){
@@ -1551,8 +1588,8 @@ button.version{border:0;background:transparent;padding:6px 4px;min-width:64px;mi
       return clauses.length>1?clauses.filter(clause=>tokenize(clause).length>=2):[];
     });
     const references=[...turn.natural,...referenceClauses];
-    for(const part of parts){
-      const text=answer.slice(part[0].start,part.at(-1).end);
+    for(const {tokens:part,end} of parts){
+      const text=answer.slice(part[0].start,end);
       const result=evaluate(text,turn);
       const partUnits=comparisonUnits(part,frame);
       if(result.status==='unknown'){
@@ -1562,7 +1599,7 @@ button.version{border:0;background:transparent;padding:6px 4px;min-width:64px;mi
         markRequestPrefix(part,partUnits,result.partialRequest);
         continue;
       }
-      if(part.length===1&&result.status!=='correct')continue;
+      if(part.length===1&&result.status!=='correct'&&result.code!=='spelling')continue;
       insertions.push(...annotate(part,partUnits,result));
       diagnostics.push(...(result.diagnostics||(['error','acceptable'].includes(result.status)?[result]:[])));
     }
@@ -1576,7 +1613,7 @@ button.version{border:0;background:transparent;padding:6px 4px;min-width:64px;mi
     const feedback=result.status==='unknown'
       ?annotateUnknown(answer,tokens,units,turn,result)
       :{insertions:annotate(tokens,units,result)};
-    return {...result,annotations:tokens,...feedback,orthographyNote:(turn.assessment.allowLets?/^\s*lets\s+/i:/^\s*lets\s+(?:watch|see|go|choose|pick)\b/i).test(answer)?'Разговорное lets принимается без снижения оценки; стандартное написание — let’s.':null,assessmentVersion:'pilot-5'};
+    return {...result,annotations:tokens,...feedback,orthographyNote:(turn.assessment.allowLets?/^\s*lets\s+/i:/^\s*lets\s+(?:watch|see|go|choose|pick)\b/i).test(answer)?'Разговорное lets принимается без снижения оценки; стандартное написание — let’s.':null,assessmentVersion:'pilot-8'};
   }
   root.StructuredAssessment={check,normalize,nounPhrase,request};
   if(typeof module!=='undefined')module.exports=root.StructuredAssessment;
@@ -2160,9 +2197,32 @@ button.version{border:0;background:transparent;padding:6px 4px;min-width:64px;mi
 
   root.DIALOGUES.push({id:'batch-event',level:'A1',topic:'volunteering',topicLabel:'Помощь на мероприятии',length:'long',checking:'construction',title:'Перед встречей в центре',speaker:'Миа, организатор',tone:'Неформальный рабочий разговор знакомых волонтеров.',context:'Ты пришел помочь Мие в местном общественном центре. До небольшой встречи еще полчаса.',authorSynopsis:'Подготовка зала: не хватает стульев, закрыта кладовая, перестановка улучшает вид на экран, затем фото для коллеги.',reviewFunctions:['Предложить начать с приоритетной задачи','Обнаружить нехватку стульев','Найти кладовую','Сообщить о закрытой двери','Попросить помочь с тяжелыми стульями','Заметить проблему видимости экрана','Предложить убрать стол к стене','Найти телефон для фото','Попросить сфотографировать себя в готовом зале','Проверить фото перед отправкой'],turns:[
     turn('Hi! Can you help me get this room ready?','Привет! Поможешь подготовить зал?','Конечно. Что сначала?','Sure. What should we do first?', ['What do we do first?','Where do we start?','What’s the first job?','What shall we do first?','What do you want me to do first?'],['what (?:should|shall|do|can) (?:we|i) do first','where (?:do|should|shall|can) we start','what is the first (?:job|task)','what is first','what first','what needs doing first','what do we start with','what do you (?:want|need) me to do first'],[err('what we should do first','we should','В прямом вопросе нужно What should we do first?','What should we do first?')],{correct:['What can I do first?','Where should we start?','What do you need me to do first?'],error:['What we should do first?'],unknown:['What should we do last?','I cannot help.']}),
-    turn('Let’s start with the chairs. We need ten. How many are here?','Начнем со стульев. Нужно десять. Сколько здесь?','Здесь только восемь стульев.','There are only eight chairs here.', ['We only have eight chairs.','Just eight chairs.','Only eight.','There are eight chairs, that’s all.','We’ve got just eight chairs here.'],['there are (?:only|just) (?:eight|8)(?: chairs)?(?: (?:in )?here)?','(?:we|i) (?:only have|have only|have got just|have just|have only got|have got only) (?:eight|8) chairs(?: (?:in )?here)?','(?:only|just) (?:eight|8)(?: chairs)?','there are (?:eight|8) chairs that is all'],[err('there is only (?:eight|8) chairs','is','С несколькими стульями нужно there are.','There are only eight chairs.'),err('(?:only |just )?(?:eight|8) chair','chair','После eight нужно chairs.','Eight chairs.')],{correct:['I only have eight chairs here.','There are just 8 chairs here.','We have only got eight chairs.'],error:['There is only eight chairs.','Eight chair.'],unknown:['There are ten chairs.','There are not eight chairs.']}),
+    turn(
+      'Let’s start with the chairs. We need ten. How many are here?',
+      'Начнем со стульев. Нужно десять. Сколько здесь?',
+      'Здесь только восемь стульев.','There are only eight chairs here.',
+      ['We only have eight chairs.','Only eight.','There are only eight.','Just eight chairs.','There are eight chairs, that’s all.','We’ve only got eight.','Eight.'],
+      [
+        'there are (?:(?:only|just) )?(?:eight|8)(?: chairs| of them)?(?: (?:in )?here)?(?: that is all)?',
+        '(?:we|i) (?:(?:only|just) have(?: got)?|have(?: (?:only|just)(?: got)?| got(?: (?:only|just))?)?) (?:eight|8)(?: chairs| of them)?(?: (?:in )?here)?',
+        '(?:(?:only|just) )?(?:eight|8)(?: chairs| of them)?(?: (?:in )?here)?(?: that is all)?',
+        '(?:eight|8)(?: chairs)? is all we have(?: (?:in )?here)?',
+        'i (?:(?:only|just) )?count (?:eight|8)(?: chairs| of them)?(?: (?:in )?here)?'
+      ],
+      [
+        err('there is only (?:eight|8) chairs','is','С несколькими стульями нужно there are.','There are only eight chairs.'),
+        err('(?:only |just )?(?:eight|8) chair','chair','После eight нужно chairs.','Eight chairs.')
+      ],
+      {
+        correct:['I only have eight chairs here.','There are just 8 chairs here.','We have only got eight chairs.',
+          "There're only eight.",'There’re just 8 of them in here.','We’ve got eight.','Eight here.','I count eight chairs.','Eight is all we have.'],
+        error:['There is only eight chairs.','Eight chair.', "There're only eigth.",'Just eigth chairs here.'],
+        unknown:['There are ten chairs.','There are not eight chairs.',"There're only nine.",'Only eight tables.',
+          "There're only eighth.", "There're only eigth tables.",'Not eigth.','Only eigth or nine.']
+      }
+    ),
     turn('There are two more in the storage room.','Еще два в кладовой.','А где кладовая?','Where’s the storage room?', ['Where is the storeroom?','Where can I find the storage room?','Which room is the storage room?','Where do you keep the extra chairs?','Where’s the cupboard with the chairs?'],['(?:and )?where is (?:the|that) (?:storage room|storeroom|cupboard with the chairs)','where can i find (?:the|that) (?:storage room|storeroom)','which room is (?:the|that) (?:storage room|storeroom)','where do you keep the (?:extra|spare) chairs','where are the (?:extra|spare) chairs kept','where is the room with the chairs','where can i get the (?:extra|spare) chairs'],[err('where is storage room','storage room','Речь о конкретной кладовой: the storage room.','Where is the storage room?','missing-determiner'),err('where the storage room is','is','В прямом вопросе is перед подлежащим.','Where is the storage room?')],{correct:['Where do you keep the spare chairs?','Where can I find the storeroom?','And where is the storage room?'],error:['Where is storage room?','Where the storage room is?'],unknown:['Where is the bathroom?','Where are the ten chairs?']}),
-    turn('The blue door, just down the hall.','Синяя дверь, дальше по коридору.','Дверь закрыта на ключ.','The door is locked.', ['It’s locked.','The storage room is locked.','I can’t open it. It’s locked.','The door’s locked.','It won’t open; it’s locked.'],['(?:the door|that door|it|the storage room|the storeroom) is locked','i cannot open (?:it|the door) (?:it|the door) is locked','(?:it|the door) will not open it (?:is|seems) locked','the door\x27s locked'],[err('the door are locked','are','Door в единственном числе: is locked.','The door is locked.'),err('the door is lock','lock','Состояние: locked.','The door is locked.')],{correct:['It is locked.','I cannot open the door. The door is locked.','The storage room is locked.'],error:['The door are locked.','The door is lock.'],unknown:['The door is open.','I lost the key.']},'Ты подошел к синей двери и попробовал ее открыть.'),
+    turn('Can you get the two chairs?','Принесешь те два стула?','Дверь закрыта на ключ.','The door is locked.', ['It’s locked.','The storage room is locked.','I can’t open it. It’s locked.','The door’s locked.','It won’t open; it’s locked.'],['(?:the door|that door|it|the storage room|the storeroom) is locked','i cannot open (?:it|the door) (?:it|the door) is locked','(?:it|the door) will not open it (?:is|seems) locked','the door\x27s locked'],[err('the door are locked','are','Door в единственном числе: is locked.','The door is locked.'),err('the door is lock','lock','Состояние: locked.','The door is locked.')],{correct:['It is locked.','I cannot open the door. The door is locked.','The storage room is locked.'],error:['The door are locked.','The door is lock.'],unknown:['The door is open.','I lost the key.']},'Миа показывает на синюю дверь дальше по коридору. Ты подходишь к ней.'),
     turn('Oh, I’ve got the key. Can you carry both chairs?','А, ключ у меня. Сможешь унести оба стула?','Они тяжелые. Помоги мне.','They’re heavy. Can you help me?', ['They’re too heavy. I need a hand.','These chairs are heavy. Give me a hand.','They’re heavy. Could you help me carry them?','The chairs are heavy. Help me with them.','They’re a bit heavy. Can you give me a hand?'],['(?:they|these|those|these chairs|the chairs) are (?:(?:too|really|very|a bit) )?heavy(?: for me)? (?:can|could|would) you (?:help me(?: carry them)?|give me a hand)','(?:they|these|those|these chairs|the chairs) are (?:(?:too|really|very|a bit) )?heavy(?: for me)? (?:i need (?:a hand|your help)|give me a hand|(?:please )?help me(?: with them| carry them)?)'],[err('they is heavy can you help me','is','С they нужно are.','They’re heavy. Can you help me?'),err('they are heavy can you help i','i','После help нужна форма me.','They’re heavy. Can you help me?')],{correct:['They are very heavy. Would you help me?','The chairs are heavy. I need a hand.','They are heavy. Help me.'],error:['They is heavy. Can you help me?','They are heavy. Can you help I?'],unknown:['Can you help me?','They are light. Can you help me?']}),
     turn('Let’s put them in rows like this. Does that look OK?','Поставим их рядами вот так. Нормально?','Сзади не видно экран.','You can’t see the screen from the back.', ['People at the back can’t see the screen.','The screen isn’t visible from the back.','You can’t see the screen from the back row.','They can’t see the screen from the back.','People in the back won’t be able to see the screen.'],['(?:you|they|i|people (?:sitting )?(?:at|in) the back) cannot see the screen(?: (?:from|at) the back(?: row)?)?','the screen is not visible from the back(?: row)?','people (?:sitting )?(?:at|in) the back will not be able to see the screen','from the back(?: row)? (?:you|they|i) cannot see the screen'],[err('you cannot watch the screen from the back','watch','Речь о том, видно ли экран: see, а не о просмотре передачи.','You can’t see the screen from the back.'),err('you cannot see screen from the back','screen','Нужен the screen: конкретный экран.','You can’t see the screen from the back.','missing-determiner')],{correct:['From the back row you cannot see the screen.','People in the back cannot see the screen.','The screen is not visible from the back row.'],error:['You cannot watch the screen from the back.','You cannot see screen from the back.'],unknown:['You can see the screen from the back.','You cannot see the door from the back.']},'Вы принесли стулья в зал. Миа расставляет их перед экраном.'),
     turn('You’re right. The table is in the way.','Верно. Стол мешает.','Давай поставим стол у стены.','Let’s put the table against the wall.', ['Let’s move the table to the wall.','We can put the table by the wall.','How about putting the table against the wall?','Why don’t we move the table next to the wall?','Let’s move it against the wall.'],['let us (?:put|move) (?:the table|it) (?:against|by|near|next to|to) the wall','(?:we can|can we|could we|shall we) (?:put|move) (?:the table|it) (?:against|by|near|next to|to) the wall','(?:how|what) about (?:putting|moving) (?:the table|it) (?:against|by|near|next to) the wall','(?:why do not we|why not) (?:put|move) (?:the table|it) (?:against|by|near|next to|to) the wall'],[err('let us put table against the wall','table','Нужно the table: конкретный стол в зале.','Let’s put the table against the wall.','missing-determiner'),err('let us put the table on the wall','on','Стол поставить у стены: against/by the wall. On the wall — на поверхности стены.','Let’s put the table against the wall.'),err('how about put the table against the wall','put','После how about здесь нужна форма putting.','How about putting the table against the wall?')],{correct:['Can we move it next to the wall?','How about moving the table by the wall?','Let us put it against the wall.'],error:['Let us put table against the wall.','Let us put the table on the wall.','How about put the table against the wall?'],unknown:['Let us put the table by the door.','Let us not move the table.']}),
@@ -2170,7 +2230,10 @@ button.version{border:0;background:transparent;padding:6px 4px;min-width:64px;mi
     turn('Got it. What shall I take a photo of?','Нашла. Что сфотографировать?','Сфотографируй меня рядом со стульями.','Take a photo of me by the chairs.', ['Can you take a picture of me next to the chairs?','Get a photo of me beside the chairs.','Could you photograph me by the chairs?','Take my picture next to the chairs.','Can you take a photo of me near the chairs?'],['(?:(?:can|could|would|will) you )?(?:take|get) a (?:photo|picture) of me (?:by|beside|next to|near|with) (?:the|those|these) chairs','(?:(?:can|could|would|will) you )?photograph me (?:by|beside|next to|near|with) (?:the|those|these) chairs','(?:(?:can|could|would|will) you )?take my picture (?:by|beside|next to|near|with) (?:the|those|these) chairs'],[err('(?:can you )?make a photo of me by the chairs','make','В этой просьбе обычно take a photo, не make a photo.','Take a photo of me by the chairs.'),err('take a photo me by the chairs','me','Нужно of me: фотография меня.','Take a photo of me by the chairs.','missing-of'),err('take a photo of i by the chairs','i','После of нужна форма me.','Take a photo of me by the chairs.')],{correct:['Would you take a picture of me beside the chairs?','Photograph me next to the chairs.','Can you get a picture of me near the chairs?'],error:['Make a photo of me by the chairs.','Take a photo me by the chairs.','Take a photo of I by the chairs.'],unknown:['Take a photo of the chairs.','Take a photo of me by the window.']}),
     turn('Nice one! Shall I send it to Sam?','Хорошо получилось! Отправить Сэму?','Сначала покажи мне фото.','Show me the photo first.', ['Let me see the photo first.','Can I see it first?','Could you show me the picture first?','Before you send it, show it to me.','I’d like to see the photo first.'],['(?:(?:can|could|would|will) you )?show (?:me (?:the photo|the picture|it)|(?:the photo|the picture|it) to me) first','(?:first )?let me (?:see|look at) (?:the photo|the picture|it)(?: first)?','(?:can|could|may) i (?:see|look at) (?:the photo|the picture|it) first','before you send it show (?:it to me|me the photo)','(?:can|could|would) you show me (?:the photo|the picture|it) before sending it','i would like to (?:see|look at) (?:the photo|the picture|it) first','show me it first','(?:can|could|may) i have a look(?: at (?:it|the photo|the picture))? first'],[err('show to me the photo first','show to me','В обычной просьбе: show me the photo или show the photo to me.','Show me the photo first.'),err('let me look the photo first','look','Look требует at: look at the photo.','Let me look at the photo first.')],{correct:['Will you show it to me first?','Let me look at it first.','May I see the picture first?'],error:['Show to me the photo first.','Let me look the photo first.'],unknown:['Send it to Sam now.','Show me the photo later.']})
   ],ending:{en:'Here you go. We look ready for our first guests!',ru:'Вот, смотри. Кажется, мы готовы встречать первых гостей!'}});
-  root.DIALOGUES.find(d=>d.id==='batch-event').turns[6].assessment.allowLets=true;
+  const event=root.DIALOGUES.find(d=>d.id==='batch-event');
+  event.turns[1].assessment.allowThereAre=true;
+  event.turns[1].assessment.spellingCorrections={eigth:'eight'};
+  event.turns[6].assessment.allowLets=true;
   root.APP_VERSION='0.10';
 })(typeof window!=='undefined'?window:globalThis);
 
@@ -2213,7 +2276,7 @@ root.DIALOGUES.find(d=>d.id==='batch-bus').turns[8].assessment.cases.error.push(
   event.turns[2].task='А где другая комната?';best(event.turns[2],'Where’s the other room?');
   event.turns[2].assessment.patterns.push('where is (?:the other|that) room','where can i find (?:the other|that) room');
   event.turns[3].task='Я не могу открыть дверь.';best(event.turns[3],'I can’t open the door.');
-  event.turns[3].assessment.patterns.push('i cannot (?:open|get through) (?:the|this|that) door','(?:the|this|that) door will not open');
+  event.turns[3].assessment.patterns.push('i cannot (?:open|get through) (?:it|(?:the|this|that) door)','(?:the|this|that) door will not open');
   best(event.turns[6],'Let’s put the table by the wall.');
   event.turns[6].assessment.patterns.push('let us put the table (?:by|next to|beside) the wall');
   best(hotel.turns[5],'Red. The door is still closed.');
@@ -2359,7 +2422,7 @@ root.DIALOGUES.find(d=>d.id==='batch-bus').turns[8].assessment.cases.error.push(
   <script>
 (function(){
   'use strict';
-  window.APP_VERSION='0.14';
+  window.APP_VERSION='0.14.4';
   const $=id=>document.getElementById(id),app=$('app'),E=window.OfflineEngine,P=window.OfflineProgress,S=window.OfflineSpeech;
   const dialogues=window.DIALOGUES.filter(d=>d.checking==='construction'),KEY='everyday-offline-v1';
   const statusNames={correct:'Верно',acceptable:'Понятно, но обычно так не говорят или неуместно в этой ситуации',error:'Ошибка',unknown:'Не распознано',revealed:'Не определено'};

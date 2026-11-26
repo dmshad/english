@@ -66,4 +66,59 @@ assert.equal(several.annotations.find(t=>t.text==='in').color,'acceptable');
 assert.equal(several.annotations.find(t=>t.text==='go').color,'error');
 assert.equal(several.annotations.find(t=>t.text==='bus').color,'correct');
 assert.equal(several.diagnostics.length,2);
+const chairs=batch.find(d=>d.id==='batch-event').turns[1];
+const chairTypo=E.check("  There're only eigth.  ",chairs);
+assert.equal(chairTypo.status,'error');
+assert.equal(chairTypo.code,'spelling');
+assert.deepEqual(Array.from(chairTypo.annotations,t=>[t.text,t.start,t.end,t.color]),[
+  ["There're",2,10,'correct'],['only',11,15,'correct'],['eigth',16,21,'error']
+]);
+assert.match(chairTypo.note,/eigth.*eight/);
+const chairMixed=E.check("There’re only eigth. Blorven.",chairs);
+assert.equal(chairMixed.status,'unknown');
+assert.equal(chairMixed.diagnostics[0].code,'spelling');
+assert.deepEqual(Array.from(chairMixed.annotations,t=>t.color),['correct','correct','error','neutral']);
+assert.equal(E.check('Eigth. Blorven.',chairs).annotations[0].color,'error');
+const unknownCount=E.check("There’re only sprog.",chairs);
+assert.equal(unknownCount.status,'unknown');
+assert.deepEqual(Array.from(unknownCount.annotations,t=>t.color),['correct','correct','neutral']);
+assert.equal(E.check("There’re only eight.",direction).status,'unknown');
+const door=batch.find(d=>d.id==='batch-event').turns[3];
+const shortDoor=E.check("  Can't open the door.  ",door);
+assert.equal(shortDoor.status,'correct');
+assert.deepEqual(Array.from(shortDoor.annotations,t=>[t.text,t.start,t.color]),[
+  ["Can't",2,'correct'],['open',8,'correct'],['the',13,'correct'],['door',17,'correct']
+]);
+assert.equal(shortDoor.insertions.length,0);
+for(const answer of ['Can’t open it.','Cannot get through that door.','I can’t open it.']){
+  assert.equal(E.check(answer,door).status,'correct',answer);
+}
+for(const answer of ["Can't.",'Can open the door.',"Can't open the window.","Can't you open the door?","Can't open the door and I’m going home."]){
+  assert.equal(E.check(answer,door).status,'unknown',answer);
+}
+assert.equal(E.check('Yep, but can’t see you yet.',park.turns[7]).status,'correct');
+assert.equal(E.check('Yep, but can’t see the lake.',park.turns[7]).status,'unknown');
+assert.equal(E.check('Can’t see the screen from the back.',batch.find(d=>d.id==='batch-event').turns[5]).status,'unknown');
+const mixedDoor=E.check("Can't open the door. Blorven.",door);
+assert.equal(mixedDoor.status,'unknown');
+assert.deepEqual(Array.from(mixedDoor.annotations,t=>t.color),['correct','correct','correct','correct','neutral']);
+for(const answer of ['Oh, need to go the other way.','Going the wrong way.','On the wrong bus.']){
+  const result=E.check(answer,direction);
+  assert.equal(result.status,'correct',answer);
+  assert.ok(result.annotations.every(t=>t.color==='correct'),answer);
+}
+for(const answer of ['Need to go downtown.','Going the right way.','Need to go the other way?']){
+  assert.equal(E.check(answer,direction).status,'unknown',answer);
+}
+assert.equal(E.check('In the wrong bus.',direction).status,'acceptable');
+assert.equal(E.check('Already have a ticket.',batch.find(d=>d.id==='batch-bus').turns[5]).status,'correct');
+assert.equal(E.check('Looking for comfortable walking shoes.',batch.find(d=>d.id==='batch-shoes').turns[0]).status,'correct');
+const notReady={natural:['I’m not ready.'],assessment:{kind:'conversation',patterns:['i am not ready']}};
+assert.equal(E.check('Not ready.',notReady).status,'correct');
+assert.equal(E.check('Ready.',notReady).status,'unknown');
+assert.equal(E.check('Not ready?',notReady).status,'unknown');
+const noCheese={natural:['I don’t like cheese.'],assessment:{kind:'conversation',patterns:['i do not like cheese']}};
+assert.equal(E.check("Don't like cheese.",noCheese).status,'correct');
+assert.equal(E.check('Like cheese.',noCheese).status,'unknown');
+assert.ok(E.check('Not ready? Blorven.',notReady).annotations.every(t=>t.color==='neutral'));
 console.log('Partial annotations passed: ordered matches, unknown words, neutral omissions, verified diagnostics and context.');
