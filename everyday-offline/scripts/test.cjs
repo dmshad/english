@@ -4,14 +4,16 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const context = {globalThis: {}};
-for (const file of ['engine.js','content.js','content-stage1.js','content-ten.js','content-answers.js','structured.js','content-pilot.js','content-friend.js','content-library.js','content-intros.js','content-batch-a.js','content-batch-b.js']) vm.runInNewContext(fs.readFileSync(path.join(__dirname,'..',file),'utf8'), context);
+for (const file of ['engine.js','content.js','content-stage1.js','content-ten.js','content-answers.js','structured.js','content-pilot.js','content-friend.js','content-library.js','content-intros.js','content-batch-a.js','content-batch-b.js','content-a1-batch.js','content-a1-block1-a.js','content-a1-block1-b.js','content-a1-block1-c.js']) vm.runInNewContext(fs.readFileSync(path.join(__dirname,'..',file),'utf8'), context);
 const all = context.globalThis.DIALOGUES;
 const E = context.globalThis.OfflineEngine;
 let checks = 0;
 const verify = (value, expected) => { assert.equal(value, expected); checks++; };
-verify(all.length, 28);
+verify(all.length, 34);
+const current = all.filter(dialogue => dialogue.checking === 'construction');
+verify(current.length, 14);
+verify(new Set(current.map(dialogue => dialogue.topic)).size, 14);
 verify(new Set(all.map(d => d.id)).size, all.length);
-const counts = {short:4, medium:6, long:10};
 for (const d of all) {
   verify(d.turns.length, 10);
   verify(d.length, 'long');
@@ -28,6 +30,45 @@ for (const d of all) {
     for (const value of t.acceptable) { assert.ok(value.note); verify(E.check(value.text,t).status, 'acceptable'); }
   }
 }
+const newDialogues = current.filter(dialogue => dialogue.id.startsWith('a1-'));
+verify(newDialogues.length, 6);
+const crossCases = require('./a1-block1-cross-cases.cjs');
+let crossChecks = 0;
+for (const d of newDialogues) {
+  assert.ok(d.context && d.authorSynopsis && d.tone);
+  verify(d.reviewFunctions.length, 10);
+  assert.equal(crossCases[d.id].length, d.turns.length);
+  for (const [index, turn] of d.turns.entries()) {
+    const label = `${d.id} / ${index + 1}`;
+    const {intent, required, ellipsis, cases, patterns} = turn.assessment;
+    assert.ok(intent && required && ellipsis, label);
+    assert.ok(/[а-яё]/i.test(turn.task), label);
+    assert.ok(cases.correct.length >= 3 && cases.error.length && cases.unknown.length, label);
+    for (const pattern of patterns) new RegExp(`^(?:${pattern})$`);
+    for (const [status, examples] of Object.entries(cases)) {
+      for (const example of examples) {
+        const result = E.check(example, turn);
+        assert.equal(result.status, status, `${label} · ${example}`);
+        checks++;
+        if (status === 'error') {
+          assert.ok(result.note && result.correction && result.fragment, label);
+          assert.ok(result.insertions.length || result.annotations.some(part => part.color === 'error'), label);
+        }
+      }
+    }
+    verify(E.check(turn.best + ' Blorven is glimming.', turn).status, 'unknown');
+    const [natural, rejected] = crossCases[d.id][index];
+    for (const example of natural) {
+      assert.equal(E.check(example, turn).status, 'correct', `${label} · ${example}`);
+      crossChecks++;
+    }
+    for (const example of rejected) {
+      assert.ok(['error', 'unknown'].includes(E.check(example, turn).status), `${label} · ${example}`);
+      crossChecks++;
+    }
+  }
+}
+console.log(`${crossChecks} A1 block 1 cross-review checks passed.`);
 const coffee = all[0].turns[0];
 verify(E.check('Can I get a small coffee to go, please?', coffee).status, 'correct');
 verify(E.check('I would like a small coffee to go, please.', coffee).status, 'correct');
@@ -113,5 +154,6 @@ require('./pilot-test.cjs');
 
 require('./batch-test.cjs');
 require('./batch-independent-test.cjs');
+require('./a1-block1-independent-test.cjs');
 
 require('./update-test.cjs');

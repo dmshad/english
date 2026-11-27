@@ -24,7 +24,7 @@ await send('Page.navigate',{url:'file://'+path.resolve(__dirname,'../../index.ht
 for(let i=0;i<50;i++){if(await run('document.readyState==="complete"&&Boolean(document.querySelector("[data-action=start]"))'))break;await wait(100);}
 await run('localStorage.clear();location.reload()');await wait(300);
 assert.equal(await run('document.querySelector("[data-level=B2]").disabled'),true);await fits('home390');await shot('home-light');
-const all=await run('DIALOGUES.filter(d=>d.checking==="construction").map(d=>({id:d.id,topic:d.topic,title:d.title,context:d.context,turns:d.turns,ending:d.ending}))');assert.equal(all.length,8);
+const all=await run('DIALOGUES.filter(d=>d.checking==="construction").map(d=>({id:d.id,topic:d.topic,title:d.title,context:d.context,turns:d.turns,ending:d.ending}))');assert.equal(all.length,14);
 const bus=all.find(d=>d.id==='batch-bus');
 await choose(bus);await click('[data-action=intro-next]');
 await answer(bus.turns[0].best);await click('[data-action=next]');
@@ -40,14 +40,14 @@ for(const d of all){
   assert.equal((await state()).session.phase,'ending');assert.equal((await state()).session.completedRecorded,false);assert.equal(await run('Boolean(document.querySelector(".stats"))'),false);await fits(d.id+' ending');await shot('ending');await click('[data-action=ending-next]');
   assert.equal((await state()).completionCounts[d.id],1);assert.equal(await run('document.querySelector(".stat.correct strong").textContent'),'10');await fits(d.id+' done');
 }
-assert.equal((await state()).history.length,6);assert.equal(Object.keys((await state()).completionCounts).length,8);
+assert.equal((await state()).history.length,6);assert.equal(Object.keys((await state()).completionCounts).length,14);
 await click('[data-action=home]');await click('[data-action=statistics]');
-assert.equal(await run('document.querySelector(".activity-total strong").textContent'),'8');
-assert.equal(await run('document.querySelector(".activity-days [aria-current=date] strong").textContent'),'8');
+assert.equal(await run('document.querySelector(".activity-total strong").textContent'),'14');
+assert.equal(await run('document.querySelector(".activity-days [aria-current=date] strong").textContent'),'14');
 assert.equal(await run('document.querySelectorAll(".activity-days li").length'),7);
 await fits('statistics390');await shot('statistics-light');
 await click('[data-action=home]');await click('[data-action=catalog]');await fits('catalog');await shot('catalog');
-assert.equal(await run('document.querySelectorAll(".catalog-topic").length'),8);assert.equal(await run('document.querySelectorAll(".completion-dot").length'),8);
+assert.equal(await run('document.querySelectorAll(".catalog-topic").length'),14);assert.equal(await run('document.querySelectorAll(".completion-dot").length'),14);
 await click('[data-mark="'+all[0].id+'"]');assert.equal(await run('document.querySelector("#mark-dialog").open'),true);assert.equal((await state()).completionCounts[all[0].id],1);await shot('mark-confirmation');await click('#cancel-mark');assert.equal((await state()).completionCounts[all[0].id],1);
 await click('[data-mark="'+all[0].id+'"]');await click('#confirm-mark');assert.equal((await state()).completionCounts[all[0].id],0);assert.equal((await state()).history.length,6);
 await click('[data-mark="'+all[0].id+'"]');await click('#confirm-mark');assert.equal((await state()).completionCounts[all[0].id],1);
@@ -74,7 +74,7 @@ await click('[data-action=home]');await click('[data-action=history]');assert.eq
 // iPhone SE proportions, then keyboard-sized viewport with focused answer.
 await send('Emulation.setDeviceMetricsOverride',{width:375,height:667,deviceScaleFactor:1,mobile:true});await wait(100);await fits('home375');await fits('home375-fixed');await choose(d);await click('[data-action=home]');await fits('speech-home375-resume');assert.equal(await run('document.querySelector("[data-action=history]").getBoundingClientRect().top>document.querySelector("[data-action=start]").getBoundingClientRect().bottom'),true);await choose(d);await click('[data-action=intro-next]');await fits('work375');await shot('work-small');
 await click('[data-action=home]');await click('[data-action=statistics]');await fits('statistics375');
-assert.equal(await run('document.querySelector(".activity-total strong").textContent'),'9');
+assert.equal(await run('document.querySelector(".activity-total strong").textContent'),'15');
 await shot('statistics-dark');await click('[data-action=home]');await click('[data-action=resume]');
 await run('document.querySelector("#answer").focus()');await send('Emulation.setDeviceMetricsOverride',{width:375,height:380,deviceScaleFactor:1,mobile:true});await wait(150);assert.equal(await run('document.body.classList.contains("keyboard-open")'),true);assert.equal(await run('document.documentElement.scrollHeight>innerHeight'),true);
 await run('document.querySelector("#answer").blur()');await send('Emulation.setDeviceMetricsOverride',{width:375,height:667,deviceScaleFactor:1,mobile:true});await wait(150);
@@ -134,11 +134,11 @@ await run(`(() => {
 })()`);
 for(let i=0;i<50;i++){if(await run('Boolean(document.querySelector("[data-action=statistics]"))'))break;await wait(100);}
 await click('[data-action=statistics]');
-assert.equal(await run('document.querySelector(".activity-total strong").textContent'),'52');
+assert.equal(await run('document.querySelector(".activity-total strong").textContent'),'58');
 assert.equal(await run('[...document.querySelectorAll(".activity-weeks strong")].map(e=>e.textContent).join(",")'),'16,24');
 await fits('statistics archive375');await shot('statistics-archive');
 await send('Emulation.setDeviceMetricsOverride',{width:1280,height:900,deviceScaleFactor:1,mobile:false});await wait(100);await fits('desktop');
 assert.deepEqual(errors,[],'JS exceptions');assert.deepEqual(requests,[],'Unexpected network requests');
-console.log('Chrome file:// OFFLINE passed: eight full text runs, one speech run with stubbed audio, unified counters, completion statistics, catalogue and confirmation, intro/scenes/review/ending/result, mixed feedback, Ava Premium selection, fixed panels, 390×844/375×667/desktop, keyboard viewport, themes, history/copy/journal, no JS exceptions or network requests.');
+console.log('Chrome file:// OFFLINE passed: fourteen full text runs, one speech run with stubbed audio, unified counters, completion statistics, catalogue and confirmation, intro/scenes/review/ending/result, mixed feedback, Ava Premium selection, fixed panels, 390×844/375×667/desktop, keyboard viewport, themes, history/copy/journal, no JS exceptions or network requests.');
 }finally{ws.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

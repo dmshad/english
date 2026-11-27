@@ -8,7 +8,7 @@ function setup(initial,blocked=false){
   const window={innerHeight:844,scrollTo(){},addEventListener(){},speechSynthesis:synth,SpeechSynthesisUtterance:class{constructor(text){this.text=text;}}};
   const document={getElementById:el,querySelector:()=>el('meta'),activeElement:null,documentElement:{dataset:{},style:{setProperty(k,v){vars[k]=v;}}},body:{classList:{toggle(){}}}};
   const context=vm.createContext({window,document,localStorage:{getItem(k){if(blocked)throw Error();return store.get(k)||null;},setItem(k,v){if(blocked)throw Error();store.set(k,v);}},navigator:{},console,setTimeout:()=>1,clearTimeout(){}});
-  for(const f of ['engine.js','content.js','content-stage1.js','content-ten.js','content-answers.js','structured.js','content-pilot.js','content-friend.js','content-library.js','content-intros.js','content-batch-a.js','content-batch-b.js','progress.js','speech.js','update.js','app.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'..',f),'utf8'),context);
+  for(const f of ['engine.js','content.js','content-stage1.js','content-ten.js','content-answers.js','structured.js','content-pilot.js','content-friend.js','content-library.js','content-intros.js','content-batch-a.js','content-batch-b.js','content-a1-batch.js','content-a1-block1-a.js','content-a1-block1-b.js','content-a1-block1-c.js','progress.js','speech.js','update.js','app.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'..',f),'utf8'),context);
   const click=data=>el('app').handlers.click({target:{closest:()=>({dataset:data,disabled:false})}});
   const change=(id,value)=>el('app').handlers.change({target:{id,value}});
   const type=text=>{el('answer').value=text;el('app').handlers.input({target:{id:'answer',value:text}});};
@@ -19,7 +19,7 @@ function setup(initial,blocked=false){
   const state=()=>JSON.parse(store.get(KEY));
   return {el,store,state,click,change,type,answer,all,start,finish,plays,window,document,html:()=>el('app').innerHTML};
 }
-const ui=setup();eq(ui.all.length,8);ok(!ui.html().includes('Больше уверенности'));ok(!ui.html().includes('Что распознано'));ok(ui.html().includes('data-level="B2" aria-pressed="false" disabled'));ui.click({level:'B2'});eq(ui.state().settings.level,'A1');
+const ui=setup();eq(ui.all.length,14);ok(!ui.html().includes('Больше уверенности'));ok(!ui.html().includes('Что распознано'));ok(ui.html().includes('data-level="B2" aria-pressed="false" disabled'));ui.click({level:'B2'});eq(ui.state().settings.level,'A1');
 ui.click({theme:'dark'});eq(ui.document.documentElement.dataset.theme,'dark');eq(setup(ui.store.get(KEY)).state().settings.theme,'dark');
 const d=ui.all.find(d=>d.id==='batch-shoes');ui.start(d);ok(ui.html().includes(d.context));ok(!ui.html().includes(d.turns[0].en));eq(ui.state().session.phase,'intro');eq(ui.state().completionCounts[d.id]||0,0);
 ui.click({action:'intro-next'});ok(ui.html().includes(d.turns[0].en));ok(ui.html().includes(d.turns[0].task));ok(!ui.html().includes(d.turns[0].ru));ui.click({action:'translation'});ok(ui.html().includes(d.turns[0].ru));
@@ -49,16 +49,27 @@ const P=audio.window.OfflineProgress,counts={a:2,b:1,c:1};
 eq(P.eligible([{id:'a'},{id:'b'},{id:'c'}],counts,'text').map(d=>d.id).join(','),'b,c');eq(P.eligible([{id:'a'},{id:'b'}],{}).length,2);
 const candidate=ui.all[2],seed={version:4,progressRevision:6,completionCounts:{text:Object.fromEntries(ui.all.map(x=>[x.id,x.id===candidate.id?1:2])),speech:{}},settings:{mode:'text'}};
 const round=setup(JSON.stringify(seed));round.click({action:'start'});eq(round.state().session.id,candidate.id);
+// Adding the first A1 batch keeps existing sessions and prioritizes the new material.
+const oldProgress=setup();
+oldProgress.start(d);oldProgress.click({action:'intro-next'});oldProgress.type('Saved before v0.15');
+const oldState=oldProgress.state();
+for(const x of oldProgress.all.filter(item=>!item.id.startsWith('a1-')))oldState.completionCounts[x.id]=1;
+const afterBatch=setup(JSON.stringify(oldState));
+eq(afterBatch.state().session.runId,oldState.session.runId);
+eq(afterBatch.state().session.draft,'Saved before v0.15');
+eq(afterBatch.state().completionCounts[d.id],1);
+afterBatch.click({action:'start'});
+ok(afterBatch.state().session.id.startsWith('a1-'));
 // Migration preserves old snapshots and merges completion modes.
 const migrated=setup(JSON.stringify({progressRevision:6,completedIds:[d.id],history:audio.state().history,journal:[{answer:'old unknown',task:'old task'}]}));eq(migrated.state().completionCounts[d.id],1);eq(migrated.state().history.length,3);eq(migrated.state().journal.length,1);
 const reset=setup(JSON.stringify({progressRevision:5,completedIds:['pilot-library','pilot-friend-evening'],session:{id:'pilot-library',contentRevision:5,index:0,answers:[]},journal:[{answer:'keep',task:'keep'}]}));eq(reset.state().session,null);eq(reset.state().completionCounts['pilot-library']||0,0);eq(reset.state().completionCounts['pilot-friend-evening'],1);eq(reset.state().journal.length,1);
-// All eight active dialogues pass through intro/work/review/result, and history evicts only snapshots.
+// All active dialogues pass through intro/work/review/result, and history evicts only snapshots.
 const runs=setup();for(const x of runs.all){runs.start(x);runs.click({action:'intro-next'});runs.finish(x);eq(runs.state().completionCounts[x.id],1);eq(runs.state().session.phase,'done');}
-eq(runs.state().history.length,6);eq(Object.keys(runs.state().completionCounts).length,8);
+eq(runs.state().history.length,6);eq(Object.keys(runs.state().completionCounts).length,14);
 const reloadedStats=setup(runs.store.get(KEY));
 reloadedStats.click({action:'statistics'});
-ok(reloadedStats.html().includes('Всего пройдено</span><strong>8</strong>'));
-ok(reloadedStats.html().includes('aria-label="8 за эту неделю"'));
+ok(reloadedStats.html().includes('Всего пройдено</span><strong>14</strong>'));
+ok(reloadedStats.html().includes('aria-label="14 за эту неделю"'));
 eq((reloadedStats.html().match(/<abbr /g)||[]).length,7);
 eq(P.summarizeActivity(resumedRepeat.state().activity).total,2);
 const rollup=P.summarizeActivity({undated:3,days:{'2025-12-28':2,'2025-12-29':1,'2026-01-04':3,'2026-01-05':4,'2026-01-06':5}},new Date(2026,0,6,12));
@@ -114,7 +125,7 @@ mixed.click({action:'toggle-text'});eq(mixed.state().session.phase,'review');mix
 const marks=setup(runs.store.get(KEY));marks.click({action:'catalog'});ok(marks.html().includes('data-mark="'+d.id+'"'));ok(!marks.html().includes('id="topic"'));marks.click({mark:d.id});eq(marks.state().completionCounts[d.id],1);ok(marks.el('mark-dialog').open);marks.el('cancel-mark').handlers.click();eq(marks.state().completionCounts[d.id],1);
 marks.click({mark:d.id});marks.el('mark-dialog').handlers.close();marks.el('confirm-mark').handlers.click();eq(marks.state().completionCounts[d.id],0);eq(marks.state().latestResults[d.id].counts.correct,10);eq(marks.state().history.length,6);
 marks.click({mark:d.id});marks.el('confirm-mark').handlers.click();eq(marks.state().completionCounts[d.id],1);marks.click({dialogue:d.id});ok(marks.html().includes('class="last-stats"'));ok(marks.html().includes('data-action="start-selected"'));
-eq(P.summarizeActivity(marks.state().activity).total,8);
+eq(P.summarizeActivity(marks.state().activity).total,14);
 // Summary remains after its full snapshot leaves the six-entry history.
 ok(!runs.state().history.some(h=>h.dialogue.id===runs.all[0].id));eq(runs.state().latestResults[runs.all[0].id].counts.correct,10);
 // Summing modes happens once; pending old sessions still resume without losing drafts.

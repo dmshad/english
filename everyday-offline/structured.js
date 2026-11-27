@@ -3,13 +3,21 @@
 (function(root){
   'use strict';
   const contractions={"you've":"you have","they're":"they are","wasn't":"was not","weren't":"were not","didn't":"did not","haven't":"have not","i'm":'i am',"we're":'we are',"you're":'you are',"it's":'it is',"that's":'that is',"there's":'there is',"where's":'where is',"what's":'what is',"i'd":'i would',"we'd":'we would',"i'll":'i will',"we'll":'we will',"i've":'i have',"we've":'we have',"don't":'do not',"doesn't":'does not',"can't":'cannot',"isn't":'is not',"aren't":'are not',"won't":'will not',"wouldn't":'would not',"couldn't":'could not',"let's":'let us'};
-  function normalize(text,frame){return String(text).normalize('NFKC').toLowerCase().replace(/[’‘]/g,"'").replace(/\b(i|we|you|he|she|they)'d better\b/g,'$1 had better').replace(/\b[a-z]+'[a-z]+\b/g,w=>w==="there're"&&frame?.allowThereAre?'there are':contractions[w]||w).replace(/\b([a-z]+)'s\b/g,(w,stem)=>frame?.beContractions?.includes(stem)?stem+' is':w).replace(/[^a-z0-9'\s]/g,' ').replace(/\s+/g,' ').trim();}
-  function edges(text){
+  function normalize(text,frame){
+    return String(text).normalize('NFKC').toLowerCase().replace(/[’‘]/g,"'")
+      .replace(/\b(it|that|he|she)'s(?=[ \t]+got\b)/g,'$1 has')
+      .replace(/\b(i|we|you|he|she|they)'d better\b/g,'$1 had better')
+      .replace(/\b(you|he|she|it|they|that)'ll\b/g,'$1 will')
+      .replace(/\b[a-z]+'[a-z]+\b/g,w=>w==="there're"&&frame?.allowThereAre?'there are':contractions[w]||w)
+      .replace(/\b([a-z]+)'s\b/g,(w,stem)=>frame?.beContractions?.includes(stem)?stem+' is':w)
+      .replace(/[^a-z0-9'\s]/g,' ').replace(/\s+/g,' ').trim();
+  }
+  function edges(text,frame){
     let core=text;const blocks=[];
     const take=(re,role,last=false)=>{const m=core.match(re);if(!m)return false;blocks.push({role,text:m[0].trim()});core=last?core.slice(0,m.index).trim():core.slice(m[0].length).trim();return true;};
     for(let i=0;i<3;i++){if(!take(/^(?:yes|yeah|yep|yup|sure|okay|ok|of course|certainly|absolutely|all right|alright)\b\s*/,'Подтверждение'))break;}
     for(let i=0;i<3;i++){if(!take(/\s*\b(?:please|thank you(?: very much| so much)?|thanks(?: a lot| so much)?)$/,'Вежливость',true))break;}
-    take(/^(?:thanks(?: a lot| so much)?|thank you(?: very much| so much)?)\s+/,'Вежливость');
+    if(!frame?.preserveLeadingThanks)take(/^(?:thanks(?: a lot| so much)?|thank you(?: very much| so much)?)\s+/,'Вежливость');
     take(/^please\s+/,'Вежливость');
     return {core,blocks,affirmed:blocks.some(b=>b.role==='Подтверждение'),polite:blocks.some(b=>b.role==='Вежливость')};
   }
@@ -326,14 +334,15 @@
     }
     return acceptable;
   }
+  const conversationalLets=/(^(?:(?:no|oh|okay|ok|sure|yes|yeah|then|well|all right) )*|\bbut )lets(?= )/;
   function evaluate(answer,turn){
     const frame=turn.assessment;
     let text=normalize(answer,frame);
-    if(frame.allowLets)text=text.replace(/^lets\s+/,'let us ');
+    if(frame.allowLets)text=text.replace(conversationalLets,'$1let us');
     else if(frame.kind==='tv'||frame.family==='comedy')text=text.replace(/^lets (?=(?:watch|see|go|choose|pick)\b)/,'let us ');
     if(!String(answer).trim())return {status:'empty'};
     if(!text||/\p{L}/u.test(String(answer).replace(/[a-z]/gi,'')))return {...unknown('неподдерживаемые буквы или фрагмент ответа'),method:'construction',assessmentVersion:'pilot-1'};
-    const e=edges(text);
+    const e=edges(text,frame);
     const plain=e.core.replace(/^((?:can|could|may|might|would|will) (?:i|we|you)) please /,'$1 ');
     if(plain!==e.core){e.core=plain;e.polite=true;e.blocks.push({role:'Вежливость',text:'please'});}
     if(frame.rejectAffirmed&&e.affirmed&&!/^no\b/.test(e.core))return {...unknown('подтверждение в начале противоречит требуемому отказу',e.blocks),method:'construction'};
@@ -357,11 +366,15 @@
     return [...answer.matchAll(/[\p{L}\p{M}\p{N}]+(?:['’‘][\p{L}\p{M}]+)?/gu)]
       .map(m=>({start:m.index,end:m.index+m[0].length,text:m[0],color:'neutral'}));
   }
-  function comparisonUnits(tokens,frame){
+  function comparisonUnits(tokens,frame,answer){
     return tokens.flatMap((token,index)=>{
       const text=token.text.normalize('NFKC');
       // Keep unsupported words in place so they cannot disappear from an alignment.
-      const word=/^[a-z0-9'’‘]+$/i.test(text)?normalize(text,frame):text;
+      const next=tokens[index+1];
+      const withGot=next&&/^got$/i.test(next.text)&&/^[ \t]+$/.test(answer.slice(token.end,next.start));
+      const word=/^[a-z0-9'’‘]+$/i.test(text)
+        ?(withGot?normalize(text+' got',frame).slice(0,-4):normalize(text,frame))
+        :text;
       return word.split(' ').map(word=>({word,index}));
     });
   }
@@ -465,7 +478,7 @@
     for(const {tokens:part,end} of parts){
       const text=answer.slice(part[0].start,end);
       const result=evaluate(text,turn);
-      const partUnits=comparisonUnits(part,frame);
+      const partUnits=comparisonUnits(part,frame,answer);
       if(result.status==='unknown'){
         if(part.length>=2&&referenceClauses.some(clause=>normalize(clause,frame)===normalize(text,frame))){
           for(const token of part)token.color='correct';
@@ -483,11 +496,14 @@
     answer=String(answer);
     const result=evaluate(answer,turn);
     const tokens=tokenize(answer);
-    const units=comparisonUnits(tokens,turn.assessment);
+    const units=comparisonUnits(tokens,turn.assessment,answer);
     const feedback=result.status==='unknown'
       ?annotateUnknown(answer,tokens,units,turn,result)
       :{insertions:annotate(tokens,units,result)};
-    return {...result,annotations:tokens,...feedback,orthographyNote:(turn.assessment.allowLets?/^\s*lets\s+/i:/^\s*lets\s+(?:watch|see|go|choose|pick)\b/i).test(answer)?'Разговорное lets принимается без снижения оценки; стандартное написание — let’s.':null,assessmentVersion:'pilot-8'};
+    const informalLets=turn.assessment.allowLets
+      ?result.status==='correct'&&conversationalLets.test(normalize(answer,turn.assessment))
+      :/^\s*lets\s+(?:watch|see|go|choose|pick)\b/i.test(answer);
+    return {...result,annotations:tokens,...feedback,orthographyNote:informalLets?'Разговорное lets принимается без снижения оценки; стандартное написание — let’s.':null,assessmentVersion:'pilot-8'};
   }
   root.StructuredAssessment={check,normalize,nounPhrase,request};
   if(typeof module!=='undefined')module.exports=root.StructuredAssessment;

@@ -1,6 +1,6 @@
 (function(){
   'use strict';
-  window.APP_VERSION='0.14.4';
+  window.APP_VERSION='0.15';
   const $=id=>document.getElementById(id),app=$('app'),E=window.OfflineEngine,P=window.OfflineProgress,S=window.OfflineSpeech;
   const dialogues=window.DIALOGUES.filter(d=>d.checking==='construction'),KEY='everyday-offline-v1';
   const statusNames={correct:'Верно',acceptable:'Понятно, но обычно так не говорят или неуместно в этой ситуации',error:'Ошибка',unknown:'Не распознано',revealed:'Не определено'};

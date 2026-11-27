@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-visual">
   <meta name="theme-color" content="#f5f7fb">
-  <meta name="application-version" content="0.14.4">
+  <meta name="application-version" content="0.15">
   <title>Everyday</title>
   <style>
 :root{color-scheme:light;--bg:#f5f7fb;--panel:#fff;--soft:#eaf0f4;--ink:#192a37;--muted:#536370;--line:#dce3e9;--accent:#166c58;--accent-soft:#e7f2ed;--green:#126048;--green-bg:#def0e5;--yellow:#805000;--yellow-bg:#fff0ba;--red:#9c201d;--red-bg:#ffdcd9;--gray:#536370;--gray-bg:#e9edf2;--app-height:100svh;font:20px/1.4 ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
@@ -43,7 +43,7 @@ button.version{border:0;background:transparent;padding:6px 4px;min-width:64px;mi
 <body>
   <header class="site-header">
     <a href="#" id="home-link" class="brand" aria-label="Everyday — на главную"><span class="brand-mark" aria-hidden="true">e.</span>everyday</a>
-    <button type="button" id="update-version" class="version" aria-label="Проверить обновления">v0.14.4</button>
+    <button type="button" id="update-version" class="version" aria-label="Проверить обновления">v0.15</button>
   </header>
   <main id="app"></main>
   <div id="toast" role="status" class="toast" hidden></div>
@@ -1129,13 +1129,21 @@ button.version{border:0;background:transparent;padding:6px 4px;min-width:64px;mi
 (function(root){
   'use strict';
   const contractions={"you've":"you have","they're":"they are","wasn't":"was not","weren't":"were not","didn't":"did not","haven't":"have not","i'm":'i am',"we're":'we are',"you're":'you are',"it's":'it is',"that's":'that is',"there's":'there is',"where's":'where is',"what's":'what is',"i'd":'i would',"we'd":'we would',"i'll":'i will',"we'll":'we will',"i've":'i have',"we've":'we have',"don't":'do not',"doesn't":'does not',"can't":'cannot',"isn't":'is not',"aren't":'are not',"won't":'will not',"wouldn't":'would not',"couldn't":'could not',"let's":'let us'};
-  function normalize(text,frame){return String(text).normalize('NFKC').toLowerCase().replace(/[’‘]/g,"'").replace(/\b(i|we|you|he|she|they)'d better\b/g,'$1 had better').replace(/\b[a-z]+'[a-z]+\b/g,w=>w==="there're"&&frame?.allowThereAre?'there are':contractions[w]||w).replace(/\b([a-z]+)'s\b/g,(w,stem)=>frame?.beContractions?.includes(stem)?stem+' is':w).replace(/[^a-z0-9'\s]/g,' ').replace(/\s+/g,' ').trim();}
-  function edges(text){
+  function normalize(text,frame){
+    return String(text).normalize('NFKC').toLowerCase().replace(/[’‘]/g,"'")
+      .replace(/\b(it|that|he|she)'s(?=[ \t]+got\b)/g,'$1 has')
+      .replace(/\b(i|we|you|he|she|they)'d better\b/g,'$1 had better')
+      .replace(/\b(you|he|she|it|they|that)'ll\b/g,'$1 will')
+      .replace(/\b[a-z]+'[a-z]+\b/g,w=>w==="there're"&&frame?.allowThereAre?'there are':contractions[w]||w)
+      .replace(/\b([a-z]+)'s\b/g,(w,stem)=>frame?.beContractions?.includes(stem)?stem+' is':w)
+      .replace(/[^a-z0-9'\s]/g,' ').replace(/\s+/g,' ').trim();
+  }
+  function edges(text,frame){
     let core=text;const blocks=[];
     const take=(re,role,last=false)=>{const m=core.match(re);if(!m)return false;blocks.push({role,text:m[0].trim()});core=last?core.slice(0,m.index).trim():core.slice(m[0].length).trim();return true;};
     for(let i=0;i<3;i++){if(!take(/^(?:yes|yeah|yep|yup|sure|okay|ok|of course|certainly|absolutely|all right|alright)\b\s*/,'Подтверждение'))break;}
     for(let i=0;i<3;i++){if(!take(/\s*\b(?:please|thank you(?: very much| so much)?|thanks(?: a lot| so much)?)$/,'Вежливость',true))break;}
-    take(/^(?:thanks(?: a lot| so much)?|thank you(?: very much| so much)?)\s+/,'Вежливость');
+    if(!frame?.preserveLeadingThanks)take(/^(?:thanks(?: a lot| so much)?|thank you(?: very much| so much)?)\s+/,'Вежливость');
     take(/^please\s+/,'Вежливость');
     return {core,blocks,affirmed:blocks.some(b=>b.role==='Подтверждение'),polite:blocks.some(b=>b.role==='Вежливость')};
   }
@@ -1452,14 +1460,15 @@ button.version{border:0;background:transparent;padding:6px 4px;min-width:64px;mi
     }
     return acceptable;
   }
+  const conversationalLets=/(^(?:(?:no|oh|okay|ok|sure|yes|yeah|then|well|all right) )*|\bbut )lets(?= )/;
   function evaluate(answer,turn){
     const frame=turn.assessment;
     let text=normalize(answer,frame);
-    if(frame.allowLets)text=text.replace(/^lets\s+/,'let us ');
+    if(frame.allowLets)text=text.replace(conversationalLets,'$1let us');
     else if(frame.kind==='tv'||frame.family==='comedy')text=text.replace(/^lets (?=(?:watch|see|go|choose|pick)\b)/,'let us ');
     if(!String(answer).trim())return {status:'empty'};
     if(!text||/\p{L}/u.test(String(answer).replace(/[a-z]/gi,'')))return {...unknown('неподдерживаемые буквы или фрагмент ответа'),method:'construction',assessmentVersion:'pilot-1'};
-    const e=edges(text);
+    const e=edges(text,frame);
     const plain=e.core.replace(/^((?:can|could|may|might|would|will) (?:i|we|you)) please /,'$1 ');
     if(plain!==e.core){e.core=plain;e.polite=true;e.blocks.push({role:'Вежливость',text:'please'});}
     if(frame.rejectAffirmed&&e.affirmed&&!/^no\b/.test(e.core))return {...unknown('подтверждение в начале противоречит требуемому отказу',e.blocks),method:'construction'};
@@ -1483,11 +1492,15 @@ button.version{border:0;background:transparent;padding:6px 4px;min-width:64px;mi
     return [...answer.matchAll(/[\p{L}\p{M}\p{N}]+(?:['’‘][\p{L}\p{M}]+)?/gu)]
       .map(m=>({start:m.index,end:m.index+m[0].length,text:m[0],color:'neutral'}));
   }
-  function comparisonUnits(tokens,frame){
+  function comparisonUnits(tokens,frame,answer){
     return tokens.flatMap((token,index)=>{
       const text=token.text.normalize('NFKC');
       // Keep unsupported words in place so they cannot disappear from an alignment.
-      const word=/^[a-z0-9'’‘]+$/i.test(text)?normalize(text,frame):text;
+      const next=tokens[index+1];
+      const withGot=next&&/^got$/i.test(next.text)&&/^[ \t]+$/.test(answer.slice(token.end,next.start));
+      const word=/^[a-z0-9'’‘]+$/i.test(text)
+        ?(withGot?normalize(text+' got',frame).slice(0,-4):normalize(text,frame))
+        :text;
       return word.split(' ').map(word=>({word,index}));
     });
   }
@@ -1591,7 +1604,7 @@ button.version{border:0;background:transparent;padding:6px 4px;min-width:64px;mi
     for(const {tokens:part,end} of parts){
       const text=answer.slice(part[0].start,end);
       const result=evaluate(text,turn);
-      const partUnits=comparisonUnits(part,frame);
+      const partUnits=comparisonUnits(part,frame,answer);
       if(result.status==='unknown'){
         if(part.length>=2&&referenceClauses.some(clause=>normalize(clause,frame)===normalize(text,frame))){
           for(const token of part)token.color='correct';
@@ -1609,11 +1622,14 @@ button.version{border:0;background:transparent;padding:6px 4px;min-width:64px;mi
     answer=String(answer);
     const result=evaluate(answer,turn);
     const tokens=tokenize(answer);
-    const units=comparisonUnits(tokens,turn.assessment);
+    const units=comparisonUnits(tokens,turn.assessment,answer);
     const feedback=result.status==='unknown'
       ?annotateUnknown(answer,tokens,units,turn,result)
       :{insertions:annotate(tokens,units,result)};
-    return {...result,annotations:tokens,...feedback,orthographyNote:(turn.assessment.allowLets?/^\s*lets\s+/i:/^\s*lets\s+(?:watch|see|go|choose|pick)\b/i).test(answer)?'Разговорное lets принимается без снижения оценки; стандартное написание — let’s.':null,assessmentVersion:'pilot-8'};
+    const informalLets=turn.assessment.allowLets
+      ?result.status==='correct'&&conversationalLets.test(normalize(answer,turn.assessment))
+      :/^\s*lets\s+(?:watch|see|go|choose|pick)\b/i.test(answer);
+    return {...result,annotations:tokens,...feedback,orthographyNote:informalLets?'Разговорное lets принимается без снижения оценки; стандартное написание — let’s.':null,assessmentVersion:'pilot-8'};
   }
   root.StructuredAssessment={check,normalize,nounPhrase,request};
   if(typeof module!=='undefined')module.exports=root.StructuredAssessment;
@@ -2289,6 +2305,792 @@ root.DIALOGUES.find(d=>d.id==='batch-bus').turns[8].assessment.cases.error.push(
 
 </script>
   <script>
+(function(root){
+  // Shared forms for the new A1 turns. The object and intent stay in each scene.
+  root.A1BatchForms={
+    ask: '(?:can|could|may) i',
+    request: '(?:can|could|would) you',
+    have: '(?:have|have got)',
+    enough: '(?:is enough|will do|will work|is fine)'
+  };
+
+  root.A1BatchTurn=function(en,ru,task,best,examples,patterns,cases,options={}){
+    const {stage='',...assessment}=options;
+    const natural=[best,...examples];
+    return {
+      en,ru,task,best,natural,displayExamples:natural.slice(0,10),acceptable:[],rules:[],stage,
+      assessment:{kind:'conversation',example:best,patterns,cases,...assessment}
+    };
+  };
+})(typeof window!=='undefined'?window:globalThis);
+
+</script>
+  <script>
+(function(root){
+  'use strict';
+  const turn = root.A1BatchTurn;
+  const error = (pattern, fragment, note, correction, code) => ({pattern, fragment, note, correction, code});
+  const machine = '(?:small (?:one|machine|washer)|little (?:one|machine|washer))';
+  const card = '(?:by card|with (?:a|my) (?:credit |debit )?card|using (?:a|my) card)';
+  const colors = '(?:colou?red (?:clothes|things)|colou?rs|clothes with colou?r)';
+  const seat = '(?:my seat|my chair|the seat i was in|where i was sitting)';
+  const find = '(?:find (?:it|my scarf)|get (?:it|my scarf) back)';
+  const door = '(?:this|that|the side|the back|the other) door';
+  const visit = '(?:(?:this is |it is )?my )?first time here';
+  const redShirt = 'new red (?:t shirt|tee shirt|tee|shirt)';
+  const three = "(?:three|3)(?: o[' ]?clock(?: in the afternoon)?| pm| p m| 00(?: pm| p m)?| in the afternoon)?";
+  const noCoins = '(?:i (?:do not have|have not got) (?:any )?|i (?:have|have got) no |no )(?:coins|change)(?: (?:on|with) me)?';
+  const payByCard = '(?:can|could|may) i (?:pay '+card+'|use (?:a|my) (?:credit |debit )?card)';
+
+  root.DIALOGUES.push({
+    id: 'a1-laundry',
+    topic: 'laundry',
+    topicLabel: 'Прачечная',
+    title: 'Первая стирка',
+    speaker: 'Сотрудник прачечной',
+    context: 'Ты впервые в прачечной самообслуживания. С тобой сумка с вещами. Сотрудник замечает, что ты разглядываешь машины.',
+    authorSynopsis: 'Сотрудник помогает выбрать свободную машину, оплатить картой и запустить стирку. Ученик успевает сходить за кофе до конца цикла.',
+    tone: 'Доброжелательный разговор посетителя с сотрудником, без избыточной официальности.',
+    level: 'A1',
+    length: 'long',
+    checking: 'construction',
+    turns: [
+      turn('Hi there. Need a hand?', 'Здравствуйте. Вам помочь?',
+        'Да, я здесь впервые.', 'Yes, it’s my first time here.',
+        ['Yes, please. I’ve never been here before.', 'This is my first time here.', 'Sure, I’m new here.', 'Yeah. First time here.', 'It’s my first time here. Could you help me?'],
+        ['(?:please )?'+visit+'(?: (?:(?:can|could|would) you help(?: me)?(?: out)?|a hand would be (?:great|nice|helpful)))?',
+          '(?:please )?i (?:am new here|have never been here before|have not been here before)(?: (?:can|could|would) you help(?: me)?(?: out)?)?',
+          '(?:can|could|would) you help(?: me)?(?: out)? (?:this is my first time here|it is my first time here|i am new here|i have never been here before)'],
+        {correct: ['Yeah, my first time here.', 'I haven’t been here before.', 'Can you help me out? This is my first time here.'],
+          error: ['Yes, I is new here.'],
+          unknown: ['I work here.', 'This is my first time here. I don’t need help.', 'Yes, please.']},
+        {intent: 'Принять предложение помощи и сообщить причину.', required: 'Первый визит и согласие на помощь.', ellipsis: 'First time here в ответ на Need a hand? подтверждает, что помощь нужна, и сообщает, почему.',
+          errors: [error('i is new here', 'is', 'С I нужно am: I am new here.', 'Yes, I’m new here.')]}),
+
+      turn('Of course. What have you got in the bag?', 'Конечно. Что у вас в сумке?',
+        'Только цветные вещи.', 'Just colored clothes.',
+        ['Just colors.', 'Only colored clothes.', 'It’s all colored clothes.', 'I’ve only got colors.', 'No whites, just colors.'],
+        ['(?:just|only) '+colors, 'nothing but '+colors, 'no whites (?:just|only) '+colors,
+          'i (?:have|have got|brought) (?:just|only) '+colors, 'i (?:just|only) (?:have|have got|brought) '+colors,
+          'it is (?:all|all just) '+colors, 'all '+colors],
+        {correct: ['Just coloured things.', 'I have only colored clothes.', 'No whites, only colored clothes.'],
+          error: ['Only a colored clothes.'],
+          unknown: ['Just white clothes.', 'Colored clothes and whites.', 'Just clothes.']},
+        {intent: 'Уточнить, что стирка целиком цветная.', required: 'Только цветные вещи, белых нет.', ellipsis: 'Краткий ответ называет содержимое без I have. Colors здесь означает цветную одежду.',
+          errors: [error('(?:just|only) a colou?red clothes', 'a', 'Перед множественным clothes здесь не нужен артикль a.', 'Just colored clothes.')]}),
+
+      turn('OK. Is that a big load?', 'Понятно. Вещей много?',
+        'Нет, мне хватит маленькой машины.', 'No, a small machine is fine.',
+        ['No, a small one is fine.', 'A small one will do.', 'A small machine is big enough.', 'No, I just need a small washer.', 'A small one is all I need.'],
+        ['(?:no )?(?:a|the) '+machine+' (?:is (?:fine|enough|big enough|all i need)|will (?:do|be fine|be enough|be big enough))',
+          '(?:no )?i (?:just |only )?(?:need|can use) a '+machine, '(?:no )?(?:just |only )?a '+machine],
+        {correct: ['A small washer will be fine.', 'No, a little one is enough.', 'I only need a small machine.'],
+          error: ['A small machine are fine.'],
+          unknown: ['A big one is fine.', 'A small machine is not enough.', 'No.']},
+        {intent: 'Выбрать достаточный размер машины.', required: 'Маленькой машины хватит.', ellipsis: 'One относится к машине. Ответ a small one сам сообщает выбор, поэтому отдельное no не обязательно.',
+          rejectAffirmed: true,
+          errors: [error('(?:no )?a '+machine+' are fine', 'are', 'С одной машиной нужно is: a small machine is fine.', 'A small machine is fine.')]}),
+
+      turn('Number six is free. It’s three dollars.', 'Шестая свободна. Стирка стоит три доллара.',
+        'У меня нет монет. Можно картой?', 'I don’t have any coins. Can I pay by card?',
+        ['No coins. Can I use my card?', 'Can I pay with a card? I don’t have any coins.', 'I have no coins. Do you take cards?', 'I’ve got no coins. Is a card OK?', 'I don’t have change. Can I use a card?'],
+        [noCoins+' '+payByCard,
+          noCoins+' (?:do (?:you|they) (?:take|accept) (?:credit |debit )?cards|is (?:a |my )?(?:credit |debit )?card (?:ok|okay|fine)|(?:will|would) (?:a|my) (?:credit |debit )?card work|'+card+')',
+          payByCard+' '+noCoins],
+        {correct: ['No change. Can I pay with my card?', 'I’ve got no change. Do you accept cards?', 'Could I use a card? I haven’t got any coins.'],
+          error: ['I don’t have any coins. Can I pay with card?'],
+          unknown: ['I have some coins. Can I pay by card?', 'I don’t have coins. Can I pay with cash?', 'Can I pay by card?']},
+        {intent: 'Объяснить, почему нужен другой способ оплаты, и узнать, принимают ли карту.', required: 'Монет нет, предлагается оплата картой.', ellipsis: 'No coins и By card? возможны как части ответа. Название стирки известно.',
+          errors: [error('i do not have (?:any )?(?:coins|change) (?:can|could|may) i pay with card', 'card', 'После pay with здесь нужен определитель: with a card или with my card. Можно сказать by card без артикля.', 'I don’t have any coins. Can I pay with a card?', 'missing-determiner')]}),
+
+      turn('Yes. Tap here. Do you have everything you need?', 'Да. Приложите карту сюда. У вас всё есть?',
+        'Нет, я забыл средство для стирки.', 'No, I forgot my laundry soap.',
+        ['I forgot the soap.', 'I left my laundry soap at home.', 'No, I forgot my detergent.', 'I don’t have any laundry detergent. I forgot it.', 'Forgot my detergent, sorry.'],
+        ['(?:no )?(?:i )?forgot (?:my|the) (?:laundry )?(?:soap|detergent)',
+          '(?:no )?i have forgotten (?:my|the) (?:laundry )?(?:soap|detergent)',
+          '(?:no )?(?:(?:i )?left|i have left) (?:my|the) (?:laundry )?(?:soap|detergent) at home',
+          '(?:no )?i forgot to bring (?:my |the |any )?(?:laundry )?(?:soap|detergent)',
+          '(?:no )?i do not have (?:any )?(?:laundry )?(?:soap|detergent) i forgot it'],
+        {correct: ['No, I left the soap at home.', 'I forgot to bring detergent.', 'I’ve forgotten the laundry detergent.'],
+          error: ['No, I did forgot my detergent.'],
+          unknown: ['I forgot my shampoo.', 'No, I have some detergent.', 'No, I don’t have any detergent.']},
+        {intent: 'Объяснить, какого средства не хватает и почему.', required: 'Средство для стирки забыто.', ellipsis: 'Soap здесь означает средство для стирки. В коротком Forgot my detergent можно опустить I.',
+          rejectAffirmed: true,
+          errors: [error('(?:no )?i did forgot (?:my|the) (?:laundry )?(?:soap|detergent)', 'forgot', 'После did нужна форма forget, либо простое прошедшее forgot без did.', 'No, I did forget my detergent.')]}),
+
+      turn('I’ve got a little box here. You can have it.', 'У меня тут есть коробочка средства. Возьмите.',
+        'Спасибо. Куда его засыпать?', 'Thanks. Where do I put it?',
+        ['Thank you. Where does it go?', 'Thanks. Where should I put the soap?', 'Thanks. Where do I pour it?', 'Thanks. Which part does it go in?'],
+        ['where (?:do|should|can) i (?:put|pour|add) (?:it|(?:my|the|this) (?:laundry )?(?:soap|detergent))',
+          'where (?:does (?:it|the (?:soap|detergent)) go|should it go)', 'which (?:part|slot|compartment) does it go in',
+          'which (?:part|slot|compartment) (?:do|should) i (?:put|pour) it (?:in|into)'],
+        {correct: ['Thanks. Where do I add the detergent?', 'Thank you. Which compartment does it go in?', 'Thanks! Where should it go?'],
+          error: ['Thanks. Where does it goes?'],
+          unknown: ['When do I put it in?', 'Where do I put my coins?']},
+        {stage: 'Ты прикладываешь карту к считывателю.',
+          intent: 'Принять средство и понять, куда его добавить.', required: 'Место для средства в машине.', ellipsis: 'It отсылает к средству из только что полученной коробки. Вежливая благодарность естественна, прямой вопрос о применении уже показывает принятие.',
+          errors: [error('where does it goes', 'goes', 'После does употребляется go.', 'Where does it go?')]}),
+
+      turn('Put it in here. Now, how do you want to wash these?', 'Засыпьте сюда. А как вы хотите постирать эти вещи?',
+        'В холодной воде. У меня новая красная футболка.', 'Cold water. I have a new red T-shirt.',
+        ['In cold water. I’ve got a new red T-shirt.', 'Cold, please. I have a new red T-shirt.', 'I’d like to use cold water. I have a new red T-shirt.', 'I’ll wash them in cold water. There’s a new red T-shirt in there.'],
+        ['(?:in )?cold(?: water)? (?:please )?i (?:have|have got) a '+redShirt,
+          '(?:in )?cold(?: water)? (?:there is a '+redShirt+' in (?:there|the bag)|one of these is a '+redShirt+')',
+          'i (?:would like to use|want to use|will use) cold water (?:because )?i (?:have|have got) a '+redShirt,
+          'i will wash (?:them|these|the clothes) in cold water (?:i (?:have|have got)|there is) a '+redShirt+'(?: in there)?',
+          '(?:(?:i (?:have|have got)|there is) a |a )?'+redShirt+' so (?:cold(?: water)?|i (?:will use|want to use|would like to use) cold water)'],
+        {correct: ['Cold, please. I’ve got a new red tee.', 'In cold water. There’s a new red T-shirt in the bag.', 'I want to use cold water because I have a new red T-shirt.'],
+          error: ['Cold water. I have new red T-shirt.'],
+          unknown: ['Hot water. I have a new red T-shirt.', 'Cold water. I have a new blue T-shirt.', 'Cold water.']},
+        {intent: 'Выбрать холодную воду и объяснить причину.', required: 'Холодная вода, новая красная футболка.', ellipsis: 'Cold можно сказать отдельно при выборе режима. Признаки футболки сообщаются впервые.',
+          errors: [error('(?:in )?cold(?: water)? i (?:have|have got) new red t shirt', 'new red t shirt', 'Перед одной футболкой нужен определитель: a new red T-shirt.', 'Cold water. I have a new red T-shirt.', 'missing-determiner')]}),
+
+      turn('Good idea. Press this to start.', 'Хорошая мысль. Чтобы запустить стирку, нажмите сюда.',
+        'Сколько времени это займет?', 'How long will it take?',
+        ['How long does it take?', 'How long is the wash?', 'How long until it’s done?', 'When will it be ready?', 'How many minutes does it take?'],
+        ['how (?:long|many minutes|much time) (?:will|does) (?:it|(?:this|the) (?:wash|cycle)) take',
+          'how long (?:is (?:the|this) (?:wash|cycle)|until (?:it is|the wash is) (?:done|finished))',
+          'when will (?:it|the wash) be (?:ready|done|finished)',
+          'when (?:is it done|does (?:it|the wash) finish)',
+          'how long(?: for (?:this|the) (?:wash|cycle))?',
+          'how (?:long|many minutes|much time) does a (?:wash|cycle) take'],
+        {correct: ['How long will the cycle take?', 'How many minutes will it take?', 'How long until the wash is finished?'],
+          error: ['How long it will take?'],
+          unknown: ['How much will it cost?', 'How long does it take to dry?']},
+        {stage: 'Ты кладешь вещи в машину, засыпаешь средство и выбираешь холодную воду.',
+          intent: 'Узнать длительность начатой стирки.', required: 'Время до конца стирки.', ellipsis: 'It отсылает к стирке. How long? однозначно спрашивает о длительности сразу после запуска.',
+          errors: [error('how long it will take', 'it will', 'В прямом вопросе will ставится перед it: How long will it take?', 'How long will it take?')]}),
+
+      turn('Twenty-eight minutes. You don’t have to wait inside.', 'Двадцать восемь минут. Ждать внутри не обязательно.',
+        'Тогда я схожу за кофе.', 'I’ll go get some coffee, then.',
+        ['Then I’ll get some coffee.', 'I’ll go get a coffee.', 'I think I’ll grab a coffee, then.', 'In that case, I’ll go for coffee.', 'I’ll go and get a cup of coffee.'],
+        ['(?:(?:then|in that case) )?i (?:think i )?(?:will|am going to) (?:go (?:and )?)?(?:get|grab|pick up) (?:some |a |a cup of )?coffee(?: then)?',
+          '(?:(?:then|in that case) )?i (?:(?:will|am going to) go|am going) (?:out )?for (?:a |some )?coffee(?: then)?'],
+        {correct: ['I’ll grab some coffee, then.', 'Then I’m going to go and get a coffee.', 'I’ll go out for a coffee.'],
+          error: ['Then I’ll goes for coffee.'],
+          unknown: ['I’ll go get some tea, then.', 'I won’t go get coffee.', 'I think I’ll wait here.']},
+        {stage: 'Ты нажимаешь кнопку. На панели загорается время до конца стирки.',
+          intent: 'Сообщить, куда отправишься на время стирки.', required: 'Решение сходить за кофе.', ellipsis: 'Then можно опустить: решение следует из того, что ждать внутри не нужно. Можно опустить точку назначения, поскольку важно действие.',
+          errors: [error('(?:then )?i will goes for (?:some |a )?coffee', 'goes', 'После will употребляется go.', 'Then I’ll go for coffee.')]}),
+
+      turn('There’s a coffee shop next door. It’s usually pretty quick.', 'По соседству есть кофейня. Там обычно быстро обслуживают.',
+        'Я вернусь через двадцать минут.', 'I’ll be back in twenty minutes.',
+        ['I’ll come back in twenty minutes.', 'See you in twenty minutes.', 'Back in twenty minutes.', 'I’ll be back here in twenty minutes.', 'I’ll return in twenty minutes.'],
+        ['(?:i (?:will|am going to) (?:(?:be|come|get) back(?: here)?|return(?: here)?)|(?:i will )?see you|back) in (?:twenty|20)(?: (?:minutes|mins))?(?: then)?',
+          'give me (?:twenty|20) (?:minutes|mins) i will be back',
+          'in (?:twenty|20) (?:minutes|mins) i will (?:be back|come back|return)'],
+        {correct: ['I’m going to be back in 20 minutes.', 'In twenty minutes I’ll be back.', 'I’ll see you in twenty mins.'],
+          error: ['I’ll be back in twenty minute.'],
+          unknown: ['I’ll be back in thirty minutes.', 'I won’t be back in twenty minutes.', 'I’ll be here for twenty minutes.']},
+        {intent: 'Назвать время возвращения за стиркой.', required: 'Возвращение через двадцать минут, до конца стирки.', ellipsis: 'Back in twenty minutes сообщает и возвращение, и срок. Место понятно.',
+          errors: [error('i will (?:be|come|get) back in (?:twenty|20) minute', 'minute', 'После twenty нужно множественное minutes.', 'I’ll be back in twenty minutes.')]})
+    ],
+    ending: {en: 'Sounds good. See you in a bit!', ru: 'Хорошо. Скоро увидимся!'},
+    reviewFunctions: [
+      'Первый визит объясняет, зачем нужна помощь.',
+      'Содержимое сумки определяет режим, к которому вернутся позже.',
+      'Ученик выбирает размер, сотрудник указывает свободную машину.',
+      'Отсутствие монет мотивирует вопрос о безналичной оплате.',
+      'Перед запуском выясняется, что не хватает средства.',
+      'Ученик принимает помощь и узнает, как добавить средство.',
+      'Новая красная футболка объясняет выбор холодной воды.',
+      'Длительность цикла позволяет решить, ждать ли на месте.',
+      'Освободившееся время можно использовать, чтобы сходить за кофе.',
+      'Ученик обозначает время возвращения, оставляя запас до конца цикла.'
+    ]
+  });
+
+  root.DIALOGUES.push({
+    id: 'a1-cinema',
+    topic: 'cinema',
+    topicLabel: 'Кинотеатр',
+    title: 'После сеанса',
+    speaker: 'Сотрудник кинотеатра',
+    context: 'После дневного сеанса ты вышел из кинотеатра и заметил, что оставил шарф в зале. Ты возвращаешься и подходишь к сотруднику в фойе.',
+    authorSynopsis: 'Ученик уточняет сеанс и место, отвергает похожий шарф, показывает фото и находит свой с помощью сотрудника.',
+    tone: 'Спокойный разговор с сотрудником, которому нужно понять, что и где искать.',
+    level: 'A1',
+    length: 'long',
+    checking: 'construction',
+    turns: [
+      turn('Hi. Is everything OK?', 'Здравствуйте. Всё в порядке?',
+        'Я оставил шарф в зале.', 'I left my scarf in the theater.',
+        ['I left my scarf inside.', 'I forgot my scarf in the theater.', 'My scarf is still in the theater.', 'I think I left my scarf in the movie theater.', 'I left my scarf in there.'],
+        ['i (?:think i )?(?:left|forgot|have left) my scarf (?:inside|in there|in the (?:movie )?theat(?:er|re)|in the screening room|in the cinema)',
+          'my scarf is (?:still )?(?:inside|in there|in the (?:movie )?theat(?:er|re)|in the screening room|in the cinema)',
+          'i (?:think i )?left a scarf (?:inside|in there|in the (?:movie )?theat(?:er|re)|in the cinema)'],
+        {correct: ['My scarf is still inside.', 'I left a scarf in the movie theater.', 'I’ve left my scarf in the screening room.'],
+          error: ['I leaved my scarf in the theater.'],
+          unknown: ['I left my bag in the theater.', 'I left my scarf at home.', 'I lost my scarf on the way here.']},
+        {intent: 'Сообщить, что за вещь осталась и где.', required: 'Шарф остался в кинозале.', ellipsis: 'Inside или in there в фойе после сеанса отсылает к пространству кинотеатра; время и место уточняются дальше.',
+          beContractions: ['scarf'],
+          errors: [error('i leaved my scarf in the (?:movie )?theat(?:er|re)', 'leaved', 'Прошедшая форма leave — left.', 'I left my scarf in the theater.')]}),
+
+      turn('Oh, no. What time was your movie?', 'Вот досада. Во сколько был ваш сеанс?',
+        'В три часа.', 'At three.',
+        ['At three o’clock.', 'It was at three.', 'The three o’clock show.', 'Three.', 'It started at three.'],
+        ['(?:at )?'+three,
+          '(?:it was|it started|the movie started|the show was) at '+three,
+          '(?:it was the |the )?'+three+' (?:movie|show|showing|screening)'],
+        {correct: ['Three p.m.', 'The movie started at 3.', '3:00.'],
+          error: ['It start at three.'],
+          unknown: ['At four.', 'It ended at three.', 'It wasn’t at three.']},
+        {intent: 'Указать время начала сеанса.', required: 'Три часа дня.', ellipsis: 'Three отвечает на прямой вопрос о времени. Время дня понятно: ученик только что вышел с дневного сеанса.',
+          errors: [error('it start at (?:three|3)', 'start', 'Сеанс уже начался в прошлом: it started at three.', 'It started at three.')]}),
+
+      turn('That was in theater two. Do you remember your seat?', 'Этот сеанс был во втором зале. Вы помните, где сидели?',
+        'В последнем ряду, у двери.', 'In the back row, by the door.',
+        ['In the last row, near the door.', 'Back row, by the door.', 'I was in the back row, next to the door.', 'I sat by the door in the last row.', 'At the back, by the door.'],
+        ['(?:(?:i (?:sat|was) )?in the |the )?(?:back|last) row (?:right )?(?:near|by|next to|close to|beside) the (?:door|exit)',
+          '(?:i (?:sat|was) )?(?:right )?(?:near|by|next to|close to|beside) the (?:door|exit) in the (?:last|back) row',
+          '(?:i (?:sat|was) )?at the (?:very )?back (?:near|by|next to|close to|beside) the (?:door|exit)'],
+        {correct: ['Last row, beside the door.', 'I was close to the exit in the back row.', 'I sat at the very back, by the door.'],
+          error: ['I sat in back row by the door.'],
+          unknown: ['In the front row, by the door.', 'In the back row, in the middle.', 'In the back row.']},
+        {intent: 'Указать место, где стоит искать.', required: 'Последний ряд, рядом с дверью.', ellipsis: 'Можно опустить I sat и сократить место до Back row, by the door. At the back с уточнением у двери достаточно в этом зале.',
+          errors: [error('i (?:sat|was) in back row (?:near|by|next to) the door', 'back row', 'Для конкретного ряда здесь нужно the: in the back row.', 'I sat in the back row by the door.', 'missing-determiner'),
+            error('i (?:sat|was) in last row (?:near|by|next to) the door', 'last row', 'Для последнего ряда здесь нужно the: in the last row.', 'I sat in the last row by the door.', 'missing-determiner')]}),
+
+      turn('OK. What does the scarf look like?', 'Хорошо. Как выглядит шарф?',
+        'Он синий, с белыми полосками.', 'It’s blue with white stripes.',
+        ['Blue with white stripes.', 'It’s a blue scarf with white stripes.', 'Mine’s blue, with white stripes.', 'It has white stripes on a blue background.', 'A blue scarf with white stripes.'],
+        ['(?:(?:it is|my scarf is|mine is) )?blue with white (?:stripes|lines)',
+          '(?:it is )?a blue scarf with white (?:stripes|lines)',
+          '(?:it is|mine is|my scarf is) blue and (?:it )?has white (?:stripes|lines)',
+          '(?:it|my scarf) has (?:got )?white (?:stripes|lines) on (?:a blue background|blue fabric)'],
+        {correct: ['My scarf is blue with white stripes.', 'It’s blue and it has white stripes.', 'It’s got white stripes on blue fabric.'],
+          error: ['It’s blue with white stripe.', 'It is got white stripes on a blue background.'],
+          unknown: ['It’s white with blue stripes.', 'It’s blue with green stripes.', 'It’s blue.']},
+        {intent: 'Дать два признака для первичного поиска.', required: 'Синяя основа и белые полосы во множественном числе.', ellipsis: 'Без it is цвет всё равно относится к шарфу, о котором спрашивают.',
+          beContractions: ['mine'],
+          errors: [error('(?:(?:it is|my scarf is|mine is) )?blue with white stripe', 'stripe', 'Для нескольких полос нужно stripes. Об одной полосе говорят a white stripe.', 'It’s blue with white stripes.'),
+            error('it is got white (?:stripes|lines) on (?:a blue background|blue fabric)', 'is', 'Когда речь о признаке шарфа, подходит has или has got: It has white stripes.', 'It has white stripes on a blue background.')]}),
+
+      turn('Here. Someone found this under a seat in the middle.', 'Вот. Его нашли под сиденьем в середине зала.',
+        'Похож, но мой длиннее.', 'It looks like mine, but mine is longer.',
+        ['It’s close, but mine’s longer.', 'It looks similar, but mine is longer.', 'Similar, but mine’s longer.', 'That looks like mine, but my scarf is longer.', 'Mine’s longer than that.'],
+        ['(?:it|that) (?:looks (?:like mine|similar)|is (?:close|similar)) but (?:mine|my scarf) is (?:a little |a bit )?longer',
+          '(?:close|similar) but (?:mine|my scarf) is (?:a little |a bit )?longer',
+          '(?:no |not quite |not mine )?(?:mine|my scarf) is (?:a little |a bit )?longer(?: than (?:that(?: one)?|this one|it))?',
+          '(?:mine|my scarf) is (?:like that|similar) (?:just|only|but) (?:a little |a bit )?longer',
+          '(?:no |not quite )?(?:that(?: one)?|this one|it) is (?:a little |a bit )?shorter than (?:mine|my scarf)'],
+        {correct: ['That looks similar, but my scarf is a bit longer.', 'Mine is longer than this one.', 'No, that one is shorter than mine.'],
+          error: ['It looks like mine, but mine is more longer.'],
+          unknown: ['It looks like mine, but mine is shorter.', 'That’s definitely mine.', 'It looks similar.']},
+        {stage: 'Сотрудник просит минутку, заглядывает в подсобку и возвращается с коротким синим шарфом в белую полоску.',
+          intent: 'Отклонить похожую находку и указать решающее отличие.', required: 'Показанный шарф похож, но собственный длиннее.', ellipsis: 'Mine is longer само подтверждает, что показанная вещь другая. Сходство видно из ремарки и предыдущего описания.',
+          beContractions: ['mine'],
+          errors: [error('it looks like mine but mine is more longer', 'more', 'Сравнительная форма longer уже означает «длиннее». More не нужно.', 'It looks like mine, but mine is longer.')]}),
+
+      turn('We have another show in five minutes. I can still check the back for you.', 'Через пять минут новый сеанс. Я еще могу посмотреть в конце зала.',
+        'Можно мне посмотреть под своим сиденьем?', 'Can I look under my seat?',
+        ['Could I check under my seat?', 'Can I take a look under my seat?', 'Could I see if it’s under my seat?', 'Is it OK if I look under my seat?', 'Could I look under the seat I was in?'],
+        ['(?:can|could|may) i (?:look|check|take a (?:quick )?look) (?:right )?under(?:neath)? '+seat+'(?: myself)?',
+          '(?:can|could|may) i (?:look|check|see) if (?:it|my scarf) is under '+seat,
+          'is it (?:ok|okay|all right) if i (?:look|check) under '+seat,
+          'would it be (?:ok|okay|all right) if i (?:looked|checked) under '+seat,
+          'i would like to (?:look|check) under '+seat,
+          'mind if i (?:look|check) under '+seat],
+        {correct: ['May I check right under my seat?', 'Can I see if my scarf is under my seat?', 'Mind if I check under the seat I was in?'],
+          error: ['Can I looks under my seat?'],
+          unknown: ['Can I look behind my seat?', 'Can you look under your seat?', 'Can I stay for the movie?']},
+        {intent: 'Попросить разрешения самому проверить конкретное место.', required: 'Сам ученик смотрит под своим сиденьем.', ellipsis: 'Уже известно, какую вещь ищут. Seat не нужно уточнять номером: последний ряд и дверь указаны ранее.',
+          errors: [error('(?:can|could|may) i looks under '+seat, 'looks', 'После can/could/may нужна форма look.', 'Can I look under my seat?')]}),
+
+      turn('Sure. I’ll go with you. It’s this way.', 'Конечно. Я пойду с вами. Нам сюда.',
+        'Секунду, у меня есть фото шарфа.', 'Wait, I have a photo of my scarf.',
+        ['One second. I have a picture of it.', 'Hold on. I’ve got a photo of the scarf.', 'Just a second. I have a picture of my scarf on my phone.', 'Let me show you a photo of my scarf.', 'I have a picture of it right here.'],
+        ['(?:(?:wait|one sec(?:ond)?|just a sec(?:ond)?|hold on|hang on|one moment) )?i (?:have|have got) a (?:picture|photo) of (?:it|(?:my|the) scarf|me wearing it)(?: on my phone| right here)?',
+          '(?:(?:wait|one second|just a second|hold on) )?let me show you a (?:picture|photo) of (?:it|(?:my|the) scarf)',
+          'here is a (?:picture|photo) of (?:it|(?:my|the) scarf)',
+          '(?:one sec(?:ond)? |wait |hold on )?i can show you a (?:picture|photo) of (?:it|(?:my|the) scarf|me wearing it)'],
+        {correct: ['Hang on, I’ve got a picture of it on my phone.', 'Here’s a photo of the scarf.', 'Wait. I can show you a picture of it.'],
+          error: ['Wait, I have photo of my scarf.'],
+          unknown: ['Wait, I don’t have a photo.', 'I have a photo of the door.', 'Can you take a photo of it?']},
+        {intent: 'Предложить новую подсказку прямо перед поиском.', required: 'У ученика есть фото именно шарфа, которое он может показать.', ellipsis: 'Фото достаточно предъявить фразой Here’s a picture of it. It однозначно называет шарф; Wait/One second можно опустить.',
+          beContractions: ['here'],
+          errors: [error('(?:wait )?i (?:have|have got) photo of (?:it|(?:my|the) scarf)', 'photo', 'Перед одной фотографией здесь нужен a.', 'Wait, I have a photo of my scarf.', 'missing-determiner')]}),
+
+      turn('Look at that scarf under the last seat. Is it yours?', 'Посмотрите на шарф под крайним сиденьем. Он ваш?',
+        'Да, мой! Видите маленькую дырочку?', 'Yes, it’s mine! See the little hole?',
+        ['That’s mine! See the little hole?', 'Yes, and you can see the small hole.', 'It’s mine. Can you see the little hole?', 'Yes! There’s a little hole right here.', 'That’s my scarf. Look at the little hole.'],
+        ['(?:(?:it|that|this) is (?:mine|my scarf) )?(?:(?:can you |do you )?(?:see|notice)|look at) (?:a|the|this|that) (?:little|small|tiny) hole(?: here| right here)?',
+          '(?:(?:it|that|this) is (?:mine|my scarf) )?(?:and )?you can see (?:the|this|that) (?:little|small|tiny) hole',
+          '(?:(?:it|that|this) is (?:mine|my scarf) )?there is a (?:little|small|tiny) hole(?: here| right here| in it)',
+          '(?:(?:(?:it|that|this) is )?(?:mine|my scarf) )?(?:look )?it has a (?:little|small|tiny) hole(?: here| right here| in it)?'],
+        {correct: ['That’s my scarf. Do you see the tiny hole?', 'Yes, it has a small hole right here.', 'It’s mine. There’s a tiny hole in it.'],
+          error: ['It’s mine. Can you sees the little hole?'],
+          unknown: ['No, it isn’t mine. It has a little hole.', 'It’s mine. Do you see the little stain?', 'Yes, it’s mine.']},
+        {stage: 'Ты показываешь фото, на котором ты в шарфе. Сотрудник кивает и ведет тебя в зал. В последнем ряду ты показываешь свое место.',
+          intent: 'Опознать свой шарф по новому отличительному признаку.', required: 'Шарф свой; маленькая дырочка служит доказательством.', ellipsis: 'Можно сразу указать на дырочку в ответ на вопрос Yours? и тем самым подтвердить находку. Yes без признака недостаточно.',
+          errors: [error('(?:it|that|this) is (?:mine|my scarf) can you sees (?:the|this|that) (?:little|small|tiny) hole', 'sees', 'После can нужна форма see.', 'It’s mine. Can you see the little hole?')]}),
+
+      turn('I see it. Go ahead and take it.', 'Вижу. Можете забрать.',
+        'А через эту дверь можно выйти?', 'Can I go out through this door?',
+        ['Can I leave through this door?', 'Is this an exit?', 'Can I use this door to get out?', 'Can I go out this way?', 'Does this door lead out?'],
+        ['(?:can|could|may) i (?:get out|go out|leave|exit) through '+door,
+          '(?:can|could|may) i use '+door+'(?: to (?:get out|leave|go out|exit))?',
+          '(?:can|could|may) i (?:get out|go out|leave|exit) (?:this|that) way',
+          'is (?:this|that|this door|that door) (?:an exit|a way out)',
+          'does (?:this|that) door (?:lead out|go outside|lead outside)'],
+        {correct: ['Could I get out through this door?', 'Is that door a way out?', 'Can I leave this way?'],
+          error: ['Can I to leave through this door?'],
+          unknown: ['Can I open my door?', 'Can I come back through this door?', 'Can I leave my scarf by this door?']},
+        {stage: 'Рядом с последним рядом еще одна дверь, не та, через которую вы вошли из фойе.',
+          intent: 'Проверить, можно ли выйти через дверь рядом.', required: 'Речь о выходе через указанную дверь.', ellipsis: 'This way и Is this an exit? работают, потому что говорящий указывает на дверь.',
+          errors: [error('(?:can|could|may) i to (?:leave|go out|get out|exit) through '+door, 'to', 'После can/could/may глагол идет без to.', 'Can I leave through this door?')]}),
+
+      turn('Yes. Just push it open.', 'Да. Просто толкните дверь.',
+        'Спасибо, что помогли мне его найти.', 'Thanks for helping me find it.',
+        ['Thank you for helping me find my scarf.', 'Thanks for your help.', 'Thanks for helping me get it back.', 'Thanks for finding it.', 'I’m glad you helped me find it. Thanks!'],
+        ['(?:thank you(?: so much| very much)?|thanks(?: so much| a lot)?) for (?:your help|helping(?: me)?(?: (?:to )?(?:'+find+'|look for (?:it|my scarf)))?|finding (?:it|my scarf)(?: for me)?|getting (?:it|my scarf) back(?: for me)?)',
+          '(?:i am glad|i really appreciate that) you helped me (?:to )?'+find,
+          'i (?:really )?appreciate (?:your help(?: (?:finding (?:it|my scarf)|getting (?:it|my scarf) back))?|you helping me (?:to )?'+find+')'],
+        {correct: ['Thank you so much for your help.', 'Thanks for helping me to get my scarf back.', 'I really appreciate you helping me find it.'],
+          error: ['Thanks for help me find it.'],
+          unknown: ['Thanks for giving me a new scarf.', 'Thanks for watching a movie with me.', 'For your help.']},
+        {stage: 'Ты поднимаешь шарф и подходишь к двери.',
+          intent: 'Поблагодарить за поиск перед уходом.', required: 'Благодарность за помощь с предыдущей находкой.', ellipsis: 'Thanks for your help отсылает ко всему поиску. It и get it back сохраняют ту же отсылку.',
+          preserveLeadingThanks: true,
+          errors: [error('(?:thank you|thanks) for help me (?:to )?find it', 'help', 'После thanks for при описании действия нужна форма helping.', 'Thanks for helping me find it.')]})
+    ],
+    ending: {en: 'You’re welcome. Enjoy the rest of your day!', ru: 'Не за что. Хорошего дня!'},
+    reviewFunctions: [
+      'Ученик предъявляет проблему, которую сотрудник может решить.',
+      'Время сеанса помогает найти нужный зал.',
+      'Последний ряд и дверь сужают поиск до места ученика.',
+      'Цвет и полоски дают ориентир для первой попытки.',
+      'Сходство не решает задачу: длина исключает первую находку.',
+      'Ученик просит разрешения сам проверить место до следующего сеанса.',
+      'Фото дает дополнительный ориентир перед повторным поиском.',
+      'Дырочка подтверждает принадлежность другой находки.',
+      'Незнакомая дверь требует короткого уточнения маршрута наружу.',
+      'Благодарность завершает разговор после возвращения вещи.'
+    ]
+  });
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+  <script>
+(function(root){
+  const turn=root.A1BatchTurn;
+  const {request,have}=root.A1BatchForms;
+  const error=(pattern,fragment,note,correction,code='conversation-grammar')=>({pattern,fragment,note,correction,code});
+  const bikeShop='(?:the (?:bike|bicycle) (?:shop|store)|the shop|them)';
+  const backTire='(?:my |the )?(?:back|rear) (?:tire|tyre)';
+  const holdBikes='(?:hold|watch|keep an eye on) (?:the |our |both |both our |both of our )bikes';
+  root.DIALOGUES.push({
+    id:'a1-bike',topic:'cycling',topicLabel:'Велопрогулки',title:'Поездка с Максом',
+    speaker:'Макс',level:'A1',length:'long',checking:'construction',
+    context:'Ты и твой друг Макс едете по велодорожке. Макс немного впереди тебя.',
+    tone:'Дружеский разговор на ходу и после остановки.',
+    authorSynopsis:'На велопрогулке спускает задняя шина. Насоса с собой нет. Друзья узнают по телефону, что в ближайшей мастерской могут помочь, и идут туда вместе.',
+    turns:[
+      turn('Everything okay back there?','У тебя там всё нормально?','Подожди! Мне нужно остановиться.','Wait! I need to stop.',
+        ['Hold on! I have to stop.','Wait up! I’ve got to stop.','Can we stop for a second?','Let’s stop for a minute.','I need to stop for a second.','Hang on! I have to stop.'],
+        ['(?:(?:wait(?: up)?|hold on|hang on|but|no) )?(?:i (?:need to|have to|have got to|gotta)|(?:can|could) we|let us) (?:stop|pull over)(?: for (?:a (?:second|minute|moment|bit)|a little while))?',
+          '(?:wait(?: up)?|hold on|hang on) (?:i need|we need) to stop(?: here)?','(?:let us|we need to) stop here'],
+        {correct:['Hold on, I’ve got to stop for a bit.','Need to stop for a moment.','Could we stop for a minute?'],error:['Wait, I need stop.'],unknown:['Wait!','I can’t stop.','I need to speed up.']},
+        {intent:'Попросить друга подождать и остановиться.',required:'Остановка сейчас, а не только просьба подождать.',ellipsis:'Отдельное wait можно опустить, если просьба остановиться уже выражает то же действие.',
+          allowLets:true,errors:[error('(?:wait|hold on|hang on) i need stop','need stop','После need перед глаголом нужно to: need to stop.','Wait! I need to stop.')]}),
+      turn('What’s wrong?','Что случилось?','На велосипеде стало трудно ехать.','It’s hard to ride right now.',
+        ['My bike is hard to ride.','It’s hard to ride.','I’m having trouble riding.','My bike isn’t riding right.','It’s hard to pedal.','I can’t pedal easily.'],
+        ['it is (?:getting )?(?:hard|really hard|difficult) to (?:ride(?: (?:my|this|the) (?:bike|bicycle))?|pedal)(?: right now| now)?',
+          '(?:(?:my|this|the) (?:bike|bicycle)|it) is (?:hard|really hard|difficult) to ride(?: right now| now)?','i am having (?:a hard time|trouble) (?:riding(?: (?:my|this|the) (?:bike|bicycle))?|pedaling)(?: right now)?',
+          '(?:(?:my|this|the) (?:bike|bicycle)|it) (?:is not riding (?:right|well|smoothly)|does not ride (?:right|well|smoothly))',
+          'i (?:cannot|can not) (?:ride(?: (?:my|this|the) (?:bike|bicycle))?|pedal) easily','hard to (?:ride|pedal)(?: right now| now)?'],
+        {correct:['Hard to pedal.','I’m having a hard time riding this bike.','It’s difficult to pedal.'],error:['It hard to ride.'],unknown:['I don’t like my bike.','It’s easy to ride.','It’s hard to walk.']},
+        {intent:'Объяснить, почему пришлось остановиться.',required:'Трудность ехать на велосипеде или крутить педали.',ellipsis:'Предмет можно опустить в It’s hard to ride или Hard to pedal: оба стоят рядом с велосипедами.',
+          stage:'Вы съезжаете с дорожки на траву и останавливаетесь.',errors:[error('it hard to (?:ride|pedal)','hard','В полном предложении с it перед hard нужно is.','It’s hard to ride.')]}),
+      turn('Let me take a look.','Дай посмотрю.','У меня спустило заднее колесо.','My back tire is flat.',
+        ['The back tire is flat.','I have a flat back tire.','I’ve got a flat in the back.','The rear tire has gone flat.','The back one is flat.','A flat in the back.'],
+        [backTire+' (?:is flat|(?:has )?gone flat|went flat|has no air(?: in it)?)',
+          '(?:my |the )?(?:back|rear) (?:wheel|one) is flat',
+          '(?:(?:i '+have+' )?a )?flat (?:back|rear) (?:tire|tyre)',
+          '(?:i '+have+' )?a flat (?:in|at) the (?:back|rear)',
+          'i '+have+' a flat (?:on|in) '+backTire,'i '+have+' a flat on (?:the|my) (?:back|rear) wheel',
+          'there is (?:no|not any) air in '+backTire,'there is a flat in the (?:back|rear)'],
+        {correct:['I’ve got a flat rear tire.','The back wheel is flat.','There’s no air in my back tire.'],error:['I have flat back tire.'],unknown:['I have a flat front tire.','My back tire isn’t flat.','I’ve got a flat.']},
+        {intent:'Указать на спустившую шину.',required:'Спущена именно задняя шина.',ellipsis:'После осмотра велосипеда можно сказать back one. Один лишь flat не уточняет колесо.',
+          beContractions:['tire','tyre','one'],errors:[error('i (?:have|have got) flat (?:back|rear) (?:tire|tyre)','flat','Перед flat back tire нужно a: речь об одной шине.','I have a flat back tire.','missing-determiner')]}),
+      turn('Maybe it just needs some air.','Может, его просто нужно подкачать.','У тебя есть насос?','Do you have a pump?',
+        ['Have you got a pump?','Do you have a bike pump?','Got a pump?','Do you have a pump with you?','Is there a pump in your bag?','Any chance you have a pump?'],
+        ['(?:do you (?:happen to )?have|have you got|(?:you )?got|you have|any chance you (?:have|have got)) (?:a |any )(?:bike |bicycle |air )?pump(?: with you| on you| in your bag)?',
+          '(?:a |any )?(?:bike |air )?pump(?: on you| with you)?','is there a (?:bike |air )?pump in your bag','have you brought a (?:bike |air )?pump','did you bring a (?:bike |air )?pump'],
+        {correct:['You got a bike pump on you?','Did you bring a pump?','A pump with you?'],error:['Do you have pump?','Do you have bike pump?'],unknown:['Do you have a lock?','I have a pump.','Don’t use a pump.']},
+        {intent:'Узнать, есть ли у Макса насос с собой.',required:'Насос для шины, вопрос об его наличии.',ellipsis:'Разговорные Got a pump? и Pump? указывают на инструмент в только что названной задаче.',
+          errors:[error('do you have pump','pump','В полном вопросе нужно a pump.','Do you have a pump?','missing-determiner'),
+            error('do you have bike pump','bike pump','Артикль ставится перед всей группой: a bike pump.','Do you have a bike pump?','missing-determiner')]}),
+      turn('No, I left it at home.','Нет, я оставил его дома.','Тогда я пойду пешком.','Then I’ll walk.',
+        ['I’ll walk, then.','I’ll go on foot, then.','I’ll walk my bike.','Then I can walk.','I’ll get off and walk.','I guess I’ll have to walk.'],
+        ['(?:then |so )?i (?:will|can|will have to|have to|guess i will(?: have to)?) (?:walk(?: (?:my|the) (?:bike|bicycle)| with (?:my|the) (?:bike|bicycle))?|go on foot)(?: then| instead)?',
+          '(?:then |so )?i will (?:get off and walk|just walk|start walking|push (?:my|the) (?:bike|bicycle))(?: then| instead)?',
+          '(?:then )?i am walking(?: then)?','(?:walk|go on foot|on foot) (?:then|instead)'],
+        {correct:['Go on foot, then.','I’ll walk with my bike, then.','Then I’ll have to walk.'],error:['Then I’ll to walk.'],unknown:['I won’t walk.','I’ll ride home.','I’ll take the bus.']},
+        {intent:'Отказаться от езды из-за отсутствия насоса и выбрать пеший ход.',required:'Говорящий пойдет пешком; адрес пока не требуется.',ellipsis:'Причина ясна, then необязательно. Walk my bike явно называет то, что обычно ясно в этой сцене.',
+          errors:[error('(?:then )?i will to walk(?: then)?','to','После will употребляется walk без to.','Then I’ll walk.')]}),
+      turn('There’s a bike shop on Main Street.','На Мэйн-стрит есть веломастерская.','Она сегодня открыта?','Is it open today?',
+        ['Is the bike shop open today?','Are they open today?','Do you know if it’s open today?','Is it open now?','Open today?','Do you know if they’re open today?'],
+        ['is (?:it|(?:the|that) (?:bike |bicycle )?(?:shop|store)) open (?:today|now|right now)','are they open (?:today|now|right now)',
+          'do you know if (?:it is|(?:the|that) (?:bike |bicycle )?(?:shop|store) is|they are) open (?:today|now|right now)',
+          '(?:it is |they (?:are )?)?open (?:today|now|right now)','is (?:it|(?:the|that) (?:bike |bicycle )?(?:shop|store)) still open'],
+        {correct:['They open today?','Is the shop still open?','Do you know if the shop is open now?'],error:['Are it open now?'],unknown:['Is it open tomorrow?','Is it closed for the week?','Where is Main Street?']},
+        {intent:'Проверить, работает ли мастерская сегодня и можно ли туда пойти.',required:'Вопрос о работе ближайшей веломастерской сегодня; now уместно, потому что помощь нужна сейчас.',ellipsis:'Open today? достаточно, потому что упомянута одна мастерская.',
+          errors:[error('are it open (?:now|today)','are','С it используется is: Is it open?','Is it open now?')]}),
+      turn('Yeah, until six. It’s only five now.','Да, до шести. Сейчас ещё только пять.','А далеко до неё?','Is it far?',
+        ['How far is it?','Is the bike shop far from here?','How far away is it?','Is it a long walk?','Far from here?','How long does it take to walk there?'],
+        ['how far(?: away)? is (?:it|the (?:bike |bicycle )?(?:shop|store))(?: from here)?',
+          'is (?:it|the (?:bike |bicycle )?(?:shop|store)) (?:far(?: away)?|a long way)(?: from here)?',
+          'how far is (?:the walk|it to (?:the (?:bike |bicycle )?(?:shop|store)|walk there))(?: from here)?',
+          '(?:is it )?(?:a long walk|much of a walk)(?: from here)?','(?:how far|far(?: away)?|a long way)(?: from here)?',
+          'how long (?:does it take|will it take|would it take|is it) to walk (?:there|to the (?:bike |bicycle )?(?:shop|store))',
+          'is (?:it|the (?:bike |bicycle )?(?:shop|store)) (?:close(?: by)?|near(?: here)?|nearby)'],
+        {correct:['Is it a long way from here?','How far is it to the shop?','Is the shop nearby?'],error:['How far it is?'],unknown:['Is it open now?','How far is your house?','Is there a bus?']},
+        {intent:'Узнать расстояние до мастерской, чтобы оценить пеший путь.',required:'Вопрос о расстоянии или времени пешком до мастерской.',ellipsis:'Far from here? и Is it far? сохраняют однозначную отсылку.',
+          errors:[error('how far it is(?: from here)?','it is','В прямом вопросе is стоит перед it: How far is it?','How far is it?')]}),
+      turn('Five minutes on foot. We could try there.','Пять минут пешком. Можно туда сходить.','Давай сначала позвоним туда.','Let’s call them first.',
+        ['Let’s call the shop first.','How about we call first?','Maybe we should call first.','Can we call them first?','Why don’t we call first?','We could call before we go.'],
+        ['(?:let us|how about we|why do not we|(?:maybe )?we (?:can|could|should)|(?:can|could|should) we) (?:(?:call|phone|ring)(?: '+bikeShop+')?|give '+bikeShop+' a call) (?:first|before we go|before we walk over)',
+          'how about (?:(?:calling|phoning|ringing)(?: '+bikeShop+')?|giving '+bikeShop+' a call) (?:first|before we go)','first let us (?:call|phone|ring)(?: '+bikeShop+')?','(?:call|phone) first'],
+        {correct:['How about calling the bike shop first?','Lets phone them first.','OK, lets call them first.','Should we call before we go?'],error:['Let’s to call them first.'],unknown:['Let’s call them tomorrow.','Let’s go first.','Let’s not call them.']},
+        {intent:'Предложить связаться с мастерской до выхода.',required:'Совместное предложение сначала позвонить в мастерскую.',ellipsis:'Them и отсутствие дополнения в Let’s call first однозначно относятся к мастерской.',
+          allowLets:true,errors:[error('let us to call(?: them| the shop)? first','to','После let’s употребляется call без to.','Let’s call them first.')]}),
+      turn('Good idea. Here, use my phone.','Хорошая мысль. Вот, возьми мой телефон.','Позвонишь ты? Я подержу велосипеды.','Can you call? I’ll hold the bikes.',
+        ['Could you make the call? I’ll hold the bikes.','Can you call them? I can watch the bikes.','You call, and I’ll hold the bikes.','Could you call the shop? I’ll hold both bikes.','Can you call? I’ll keep an eye on our bikes.'],
+        ['(?:(?:'+request+'|will you|why do not you|you) (?:call(?: '+bikeShop+')?|make the call)|(?:can|could) you do it) (?:(?:and )?i (?:will|can) '+holdBikes+'|(?:and )?i am going to hold (?:the |both )bikes)',
+          '(?:'+request+'|will you) (?:call(?: '+bikeShop+')?|make the call) while i '+holdBikes,
+          'i (?:will|can) '+holdBikes+' (?:while|if) you (?:call(?: '+bikeShop+')?|make the call)'],
+        {correct:['Will you call them? I’ll hold both our bikes.','I can keep an eye on the bikes while you call.','Could you do it? I’ll watch our bikes.'],error:['Can you call? I’ll holds the bikes.'],unknown:['Can you call?','Can you hold the bikes? I’ll call.','I’ll hold the bikes.']},
+        {intent:'Предложить распределить действия: звонит Макс, говорящий присматривает за велосипедами.',required:'Сохранить оба действия и их исполнителей.',ellipsis:'Call можно без дополнения, потому что звонок только что согласовали. Два действия передаются явно.',
+          errors:[error('can you call i will holds the bikes','holds','После will нужна начальная форма hold.','Can you call? I’ll hold the bikes.')]}),
+      turn('They can help. I can ride ahead and meet you there.','Они могут помочь. Я могу поехать вперёд и встретить тебя там.','Нет, давай пойдём вместе.','No, let’s walk together.',
+        ['Let’s walk together.','No, we can go together.','No, walk with me.','Can we walk there together?','Let’s go together on foot.','No, come with me.'],
+        ['(?:no (?:thanks )?)?(?:let us|(?:can|could|should) we|we (?:can|could|should)|why do not we|how about we) (?:walk|go)(?: there)? together(?: on foot)?',
+          '(?:no )?(?:let us|(?:can|could|should) we|we (?:can|could|should)|why do not we|how about we) go on foot together',
+          '(?:no )?i would rather we (?:walked|went)(?: there)? together',
+          '(?:no )?(?:walk|come) with me','(?:no )?(?:'+request+'|will you) (?:walk|come) with me','(?:no )?together(?: on foot)?'],
+        {correct:['No, could you walk with me?','Why don’t we walk there together?','No, let’s go there together.','No, lets walk together.'],error:['No, let’s walking together.'],unknown:['No.','Yes, ride ahead.','Let’s walk separately.','I’ll walk alone.']},
+        {intent:'Отказаться от разделения и договориться пойти вместе.',required:'Оба идут вместе, пешком по контексту.',ellipsis:'Отдельное no необязательно. Walk with me и Together? сохраняют нужную альтернативу.',
+          stage:'Макс звонит в мастерскую. Ты держишь велосипеды, пока он разговаривает.',allowLets:true,rejectAffirmed:true,
+          errors:[error('(?:no )?let us walking together','walking','После let’s нужна начальная форма walk.','No, let’s walk together.')]}),
+    ],
+    ending:{en:'Sure. I’ll walk with you.',ru:'Конечно. Пойдём вместе.'},
+    reviewFunctions:[
+      'Сигнал остановиться, прежде чем друзья выедут с велодорожки.',
+      'Объяснение затруднения, которое запустит осмотр.',
+      'Определение конкретной проблемы при осмотре.',
+      'Проверка, можно ли справиться самим на месте.',
+      'Смена способа передвижения, потому что насоса нет.',
+      'Проверка, доступна ли предложенная помощь сегодня.',
+      'Оценка расстояния, которое придётся пройти с велосипедами.',
+      'Предложение проверить возможность ремонта до выхода.',
+      'Распределение звонка и присмотра за велосипедами.',
+      'Выбор идти вместе после подтверждения помощи.'
+    ]
+  });
+})(typeof window!=='undefined'?window:globalThis);
+
+(function(root){
+  const turn=root.A1BatchTurn;
+  const {request,have}=root.A1BatchForms;
+  const error=(pattern,fragment,note,correction,code='conversation-grammar')=>({pattern,fragment,note,correction,code});
+  const seeYou='i (?:can see|see) you';
+  const seeMe='(?:(?:can|could|do) you see me|you (?:can )?see me)(?: now| too)?';
+  const pictureOfYou='(?:a (?:photo(?:graph)?|picture) of you|you in the (?:photo|picture))';
+  const atBeach='(?:at|on) (?:the|that) beach';
+  const anotherPhoto='(?:another|one more|an extra) (?:photo(?:graph)?|picture)';
+  const fromTrip='(?:from|of) (?:that|the|our) (?:same )?(?:trip|vacation)';
+  const haveAnother='(?:(?:i )?(?:have|have got|got)|there is) (?:'+anotherPhoto+'|one more|another one)';
+  root.DIALOGUES.push({
+    id:'a1-video',topic:'video-calls',topicLabel:'Видеозвонки',title:'Звонок бабушке',
+    speaker:'Бабушка',level:'A1',length:'long',checking:'construction',
+    context:'Ты звонишь бабушке по видео с телефона. Ты у себя в комнате.',
+    tone:'Тёплый разговор с близким человеком.',
+    authorSynopsis:'Сначала ученик слышит бабушку, но не видит. Когда видео появляется, ученик показывает комнату. Бабушка узнаёт себя на фотографии из поездки, и они договариваются созвониться завтра.',
+    turns:[
+      turn('Hi! Can you hear me?','Привет! Ты меня слышишь?','Да, но я тебя не вижу.','Yes, but I can’t see you.',
+        ['I can hear you, but I can’t see you.','Yeah, but I don’t see you.','Can’t see you, though.','I can’t see you yet.','I can hear you fine. I can’t see you.','I can hear you, but there’s no picture.'],
+        ['(?:(?:i )?(?:can )?hear you(?: fine| okay| just fine)? )?(?:but )?(?:i )?(?:cannot|can not|do not) see you(?: yet| though| on (?:my|the) screen)?',
+          'i (?:can )?hear you(?: fine)? but (?:there is no (?:video|picture)|your (?:camera|video) seems to be off)',
+          '(?:i )?(?:cannot|can not|do not) see you but i (?:can )?hear you','(?:but )?(?:i )?(?:only|just) (?:have|get) (?:sound|audio)'],
+        {correct:['I hear you, but can’t see you.','Yep, can’t see you on my screen.','Yeah, I can’t see you yet.'],error:['Yes, but I can’t to see you.'],unknown:['Yes.','I can’t hear you.','I can see you, but I can’t hear you.']},
+        {intent:'Подтвердить, что звук есть, и сообщить о проблеме с изображением.',required:'Говорящий не видит бабушку. Звук можно подтвердить явно или оставить понятным из контекста.',ellipsis:'Can’t see you / I can’t see you в ответ на вопрос о звуке сообщает новое затруднение; hear you избыточно.',
+          errors:[error('(?:but )?(?:i )?(?:cannot|can not) to see you','to','После can’t употребляется see без to.','Yes, but I can’t see you.')]}),
+      turn('Oh! Let me try this button.','Ой! Попробую нажать вот эту кнопку.','Теперь вижу. А ты меня видишь?','I can see you now. Can you see me?',
+        ['Now I can see you. Can you see me?','I see you now. Do you see me?','There you are! Can you see me too?','Got you now. Can you see me?','I can see you! What about you?'],
+        ['(?:oh )?(?:now )?(?:'+seeYou+'(?: now| fine)?|there you are|i have got you(?: now)?|got you now|(?:i (?:have|have got|got) |got )?a picture now) (?:and )?'+seeMe,
+          '(?:'+seeYou+'(?: now)?|there you are) (?:and you|what about (?:you|me)|how about (?:you|me))'],
+        {correct:['I see you now. Can you see me too?','There you are. Do you see me now?','I can see you fine. You see me?'],error:['I can see you now. Can you sees me?'],unknown:['I can see you now.','Can you see me?','I still can’t see you. Can you see me?']},
+        {intent:'Сообщить, что видео появилось, и проверить, видит ли бабушка говорящего.',required:'Обе части: изображение появилось; видит ли собеседница говорящего.',ellipsis:'What about you? после подтверждения однозначно относится к видимости.',
+          errors:[error(seeYou+'(?: now)? can you sees me','sees','После can нужна форма see без -s.','I can see you now. Can you see me?')]}),
+      turn('I can see your face now!','Теперь я вижу твоё лицо!','Хочешь посмотреть мою комнату?','Do you want to see my room?',
+        ['Want to see my room?','Would you like to see my room?','Can I show you my room?','Do you want me to show you my room?','Shall I show you my room?','How about I show you my room?'],
+        ['(?:do you |you )?want to (?:see|look at) my (?:room|bedroom)','(?:you )?wanna (?:see|look at) my (?:room|bedroom)','would you like to (?:see|look at) my (?:room|bedroom)',
+          '(?:(?:can|could|may|shall|should) i|how about i) show you (?:my|the) (?:room|bedroom)','(?:do you |you )?want me to show you my (?:room|bedroom)',
+          '(?:how about|would you like) (?:a look at|a tour of) my (?:room|bedroom)',
+          'let me show you my (?:room|bedroom)'],
+        {correct:['Wanna see my room?','You want to look at my bedroom?','How about a tour of my room?'],error:['Do you want see my room?'],unknown:['Do you see my face?','Do you want to see my kitchen?','I want to see your room.']},
+        {intent:'Предложить бабушке посмотреть комнату говорящего.',required:'Предложение показать именно свою комнату.',ellipsis:'Want to see my room? сохраняет приглашение. My room? могло бы означать уточнение.',
+          errors:[error('do you want see my (?:room|bedroom)','want see','После want нужен to перед see: want to see.','Do you want to see my room?')]}),
+      turn('Yes! I can see your desk. Where do you sleep?','Да! Я вижу твой письменный стол. А где ты спишь?','Кровать у окна.','My bed is by the window.',
+        ['The bed is next to the window.','I sleep by the window.','My bed is right by the window.','By the window.','It’s by the window.','My bed is beside the window.'],
+        ['(?:(?:(?:(?:my|the) )?bed|it) is |i sleep )?(?:right |over )?(?:by|beside|next to|near|close to) (?:the|my|that) window',
+          '(?:the|my) bed is (?:right )?under the window','i sleep in (?:the|my) bed (?:right )?(?:by|beside|next to|near) the window'],
+        {correct:['Bed’s right next to the window.','Right beside the window.','It’s near the window.'],error:['My bed is next the window.'],unknown:['It’s by the door.','The bed isn’t by the window.','My desk is by the window.']},
+        {intent:'Указать место кровати и помочь бабушке сориентироваться в кадре.',required:'Место у окна, где стоит кровать.',ellipsis:'By the window достаточно после Where do you sleep? Уточнение bed тоже естественно.',
+          stage:'Ты переключаешь камеру и показываешь бабушке комнату.',beContractions:['bed'],
+          errors:[error('(?:my|the) bed is next (?:the|that|my) window','next','Чтобы сказать «рядом с», после next нужно to: next to the window.','My bed is next to the window.')]}),
+      turn('Oh, I see it. What’s that on the wall?','А, вижу. А что там на стене?','Это ты на фото.','It’s a picture of you.',
+        ['That’s a photo of you.','A picture of you.','That’s you in the picture.','It’s you!','There’s a picture of you on the wall.'],
+        ['(?:(?:it is|that is|there is) )?'+pictureOfYou+'(?: on (?:the|my) wall| up there)?','(?:it is|that is) you','you',
+          '(?:(?:it is|that is) )?a (?:photo|picture) (?:that )?i (?:have|have got) of you'],
+        {correct:['That’s a photograph of you.','It’s you in the photo.','A photo of you on the wall.'],error:['It’s photo of you.'],unknown:['It’s a picture of Mom.','It isn’t a picture of you.','It’s a picture of me.']},
+        {intent:'Назвать, кто изображён на фотографии.',required:'На фото бабушка, которой показывает комнату говорящий.',ellipsis:'A photo of you и It’s you понятны без указания места. Вариант your photo может означать собственность и без уточнения не принят.',
+          errors:[error('(?:it is|that is) photo of you','photo','Перед одним снимком нужен артикль: a photo.','It’s a photo of you.','missing-determiner'),
+            error('(?:it is|that is) picture of you','picture','Перед одним снимком нужен артикль: a picture.','It’s a picture of you.','missing-determiner')]}),
+      turn('Is it from our trip last summer?','Это с нашей поездки прошлым летом?','Да, это с пляжа.','Yes, from the beach.',
+        ['From the beach.','Yes, at the beach.','Yes, we were at the beach.','That’s from the beach.','Yes, we took it at the beach.','It’s the one from the beach.'],
+        ['(?:(?:it is|that is|it is the one|that is the one|this is) )?from (?:the|that) beach',
+          '(?:we were |you were |that was |it was )?'+atBeach,
+          '(?:(?:i|we) took (?:it|that(?: picture| photo| one)?)|(?:it|that) was taken) '+atBeach,
+          'the (?:beach|one from the beach|beach (?:picture|photo))','(?:that is|it is) from when we went to the beach'],
+        {correct:['Yes, it was taken on the beach.','We were on the beach.','Yep, that’s the one from the beach.'],error:['Yes, from beach.'],unknown:['Yes.','No, from the beach.','Yes, from the mountains.']},
+        {intent:'Подтвердить поездку и уточнить, где сделано фото.',required:'Снимок относится к обсуждаемой поездке и сделан на пляже.',ellipsis:'From the beach или At the beach без отдельного yes продолжают вопрос и выражают подтверждение.',
+          errors:[error('(?:it is |that is )?from beach','beach','В этой сцене речь о конкретном месте: from the beach.','Yes, from the beach.','missing-determiner')]}),
+      turn('Can you bring the phone a little closer?','Можешь поднести телефон чуть ближе?','Вот так лучше?','Is that better?',
+        ['Is this better?','Better now?','How’s that?','Can you see it better now?','Does that help?','Can you see it now?'],
+        ['(?:is (?:it|this|that) )?(?:any )?better(?: now| like this| like that)?',"how(?: is|'s| about) (?:this|that|it)(?: now)?",
+          '(?:can|could|do) you see (?:it|the (?:photo|picture))(?:(?: any)? better)?(?: now| like this| like that)?',
+          '(?:can|could) you make (?:it out|out the (?:photo|picture))(?: now| from there)?',
+          'does (?:this|that) help','(?:is )?(?:this|that) (?:okay|close enough)'],
+        {correct:['Better like this?','Can you see the picture any better now?','Is that close enough?'],error:['Do you can see it better?'],unknown:['I can see you better.','Is the sound better?','I can’t bring it closer.']},
+        {intent:'Проверить, достаточно ли теперь видно фото в приближённом кадре.',required:'Вопрос, улучшилась ли видимость или достаточно ли изменённого положения.',ellipsis:'Better? и How’s that? однозначны сразу после просьбы поднести телефон.',
+          errors:[error('do you can see (?:it|the (?:photo|picture)) better(?: now)?','do you can','В вопросе с can вспомогательное do не нужно: Can you see…?','Can you see it better?')]}),
+      turn('Oh, I remember that day! We had so much fun.','Ой, я помню тот день! Как же нам было весело.','У меня есть ещё одно фото с той поездки.','I have one more photo from that trip.',
+        ['I’ve got another picture from that trip.','I have another photo from our trip.','I’ve got one more from that trip.','I have another picture from that vacation.','I have another one from that trip.'],
+        [haveAnother+' '+fromTrip,haveAnother+'(?: from then| from that day)?'],
+        {correct:['I’ve got one more picture from our trip.','Have another photo from that trip.','I have one more from the same trip.'],error:['I’ve got another photos from that trip.','I have another pictures from our trip.'],unknown:['I don’t have another photo.','I have another photo from my birthday.','I have a camera.']},
+        {intent:'Сообщить о втором фото и продолжить тему общих воспоминаний.',required:'Есть ещё один снимок той же поездки. Указание поездки может быть имплицитным в ответе о другом фото.',
+          ellipsis:'Another one / one more отсылает к только что показанному снимку. Можно опустить I в разговорной конструкции, если остальная формулировка передаёт этот смысл.',
+          errors:[error('i '+have+' another photos '+fromTrip,'photos','После another здесь нужно существительное в единственном числе.','I’ve got another photo from that trip.'),
+            error('i '+have+' another pictures '+fromTrip,'pictures','После another здесь нужно существительное в единственном числе.','I have another picture from that trip.')]}),
+      turn('Oh, can I see it?','О, можно на него посмотреть?','Я пришлю его тебе сегодня вечером.','I’ll send it to you tonight.',
+        ['I’ll send it tonight.','I can send it to you this evening.','I’ll text it to you tonight.','I’ll send you the photo later tonight.','I’ll send it over tonight.','I can send it tonight.'],
+        ['(?:i (?:will|can)|i am going to) (?:send|text|message) (?:it|(?:the|that) (?:photo|picture))(?: (?:over|to you))? (?:later )?(?:tonight|this evening)',
+          '(?:i (?:will|can)|i am going to) (?:send|text|message) you (?:it|(?:the|that) (?:photo|picture)) (?:later )?(?:tonight|this evening)',
+          '(?:tonight|this evening) i (?:will|can) (?:send|text) it(?: to you| over)?'],
+        {correct:['I can send you the picture this evening.','I’ll text you the picture tonight.','Tonight I’ll send it to you.'],error:['I’ll sending it tonight.'],unknown:['I’ll send it tomorrow.','I won’t send it tonight.','I’ll send it to Mom tonight.','I’ll send it.']},
+        {intent:'Предложить прислать фото позже вместо показа во время звонка.',required:'Говорящий отправит этот снимок бабушке сегодня вечером.',ellipsis:'It и пропуск to you понятны сразу после просьбы бабушки о снимке.',
+          errors:[error('i will sending (?:it|the (?:photo|picture))(?: to you)? (?:tonight|this evening)','sending','После will нужна форма send без -ing.','I’ll send it to you tonight.')]}),
+      turn('Thanks! I have to go. Dinner’s ready.','Спасибо! Мне пора. Ужин готов.','Приятного аппетита! Позвони мне завтра.','Enjoy your dinner! Call me tomorrow.',
+        ['Have a nice dinner! Call me tomorrow.','Enjoy your meal! Can you call me tomorrow?','Enjoy dinner! Give me a call tomorrow.','Have a good dinner. Call me tomorrow, okay?','Enjoy your food! Will you call me tomorrow?'],
+        ['(?:enjoy (?:your )?(?:dinner|meal|food)|have a (?:good|nice|great) (?:dinner|meal)|bon appetit) (?:and )?(?:(?:'+request+'|will you) )?(?:call me|give me a call|call me back) tomorrow(?: (?:okay|ok|all right))?',
+          '(?:enjoy (?:your )?(?:dinner|meal)|have a (?:good|nice) (?:dinner|meal)) call tomorrow(?: (?:okay|ok))?'],
+        {correct:['Enjoy your meal! Give me a call tomorrow.','Enjoy dinner. Could you call me tomorrow?','Have a great dinner. Call me back tomorrow.'],error:['Enjoy your dinner! Call to me tomorrow.'],unknown:['Enjoy your dinner!','Talk to you later.','Enjoy your dinner! Call me tonight.','Call me tomorrow.']},
+        {intent:'Тепло попрощаться и попросить бабушку позвонить на следующий день.',required:'Пожелание приятного аппетита и просьба перезвонить именно завтра.',ellipsis:'После личного звонка Call tomorrow может опускать me. Обе части поручения сохраняются.',
+          errors:[error('(?:enjoy (?:your )?(?:dinner|meal)|have a (?:good|nice) (?:dinner|meal)) call to me tomorrow','to','Когда речь о телефонном звонке, call употребляется с прямым дополнением: call me.','Enjoy your dinner! Call me tomorrow.')]}),
+    ],
+    ending:{en:'I will. Love you!',ru:'Позвоню. Люблю тебя!'},
+    reviewFunctions:[
+      'Подтвердить наличие звука и назвать причину, по которой пока не начать видеопоказ.',
+      'Проверить, что видео заработало в обе стороны.',
+      'Перейти от настройки связи к цели семейного разговора.',
+      'Помочь бабушке сориентироваться в комнате через камеру.',
+      'Объяснить, почему на стене знакомое лицо.',
+      'Назвать место на снимке, чтобы бабушка вспомнила конкретный момент.',
+      'Проверить крупный план для бабушки.',
+      'Связать увиденный снимок с продолжением семейного разговора.',
+      'Договориться, когда бабушка увидит второй снимок.',
+      'Пожелать приятного аппетита и договориться о новом звонке.'
+    ]
+  });
+})(typeof window!=='undefined'?window:globalThis);
+
+</script>
+  <script>
+(function(root){
+  const turn=root.A1BatchTurn;
+  const {ask,request,have,enough}=root.A1BatchForms;
+  const error=(pattern,fragment,note,correction,code)=>({pattern,fragment,note,correction,code});
+
+  root.DIALOGUES.push({
+    id:'a1-parcel',topic:'post-office',topicLabel:'Почта',title:'Подарок для сестры',
+    speaker:'Сотрудник почты',level:'A1',length:'long',checking:'construction',
+    context:'Ты сделал подарок для сестры. Сейчас середина недели. Она живет в другом городе. Ты принес подарок на почту в бумажном пакете.',
+    tone:'Обычный вежливый разговор у почтового окна.',
+    authorSynopsis:'Посетитель упаковывает подарок, выбирает доставку к субботе и выясняет, как отследить посылку.',
+    reviewFunctions:['Обозначить цель визита и получателя.','Сообщить, что внутри и кто сделал вещь.','Объяснить, почему нужна упаковка.','Выбрать достаточный размер коробки.','Указать крайний срок доставки.','Узнать цену подходящего способа.','Принять цену и выбрать доставку.','Сообщить, где записан адрес, и получить возможность его переписать.','Узнать, как проверить, где посылка.','Уточнить способ оплаты.'],
+    turns:[
+      turn('Hi there! How can I help?','Здравствуйте! Чем могу помочь?','Я хочу отправить это сестре.','I want to send this to my sister.',
+        ['I’d like to mail this to my sister.','Can I send this to my sister?','I need to send this to my sister.','Could you send this to my sister?'],
+        [`(?:i (?:need|want|would like) to|${ask}|${request}) (?:send|mail|ship|get) (?:this|it|this (?:gift|package|present)) to my sister`, `(?:i (?:need|want|would like) to|${ask}|${request}) (?:send|mail|ship) my sister (?:this|this (?:gift|package|present))`, `i ${have} (?:a|this) (?:gift|package|present) to (?:send|mail|ship) to my sister`],
+        {correct:['Can I ship this gift to my sister?','I have a present to send to my sister.','Would you mail this package to my sister?'],error:['I want send this to my sister.'],unknown:['I want to send this to my brother.','For my sister.','I don’t want to send this to my sister.']},
+        {intent:'отправить принесенную вещь',required:'получатель — сестра',ellipsis:'this / it заменяет принесенную вещь',
+          errors:[error('i want send this to my sister','want send','После want перед глаголом нужно to: want to send.','I want to send this to my sister.'),
+            error('i want mail this to my sister','want mail','После want перед глаголом нужно to: want to mail.','I want to mail this to my sister.')]}),
+      turn('Sure. What’s inside?','Хорошо. Что внутри?','Это свитер. Я сам его сделал.','It’s a sweater. I made it.',
+        ['A sweater. I made it myself.','A sweater I made.','I made her a sweater.','It’s a sweater I made myself.','A handmade sweater. I made it for her.'],
+        ['(?:(?:it is|there is) )?a sweater (?:that )?i (?:made|knit|knitted)(?: myself)?(?: for (?:her|my sister))?',
+          '(?:(?:it is|there is) )?a sweater (?:i )?made it(?: myself| for her)?',
+          'i made (?:her|my sister) a sweater(?: myself)?','i (?:made|knit|knitted) (?:this|the|a) sweater(?: myself| for (?:her|my sister))?',
+          '(?:(?:it is|there is) )?a (?:handmade|homemade) sweater i made it(?: myself| for her)?'],
+        {correct:['There’s a sweater that I made.','I made this sweater for my sister.','A sweater that I made myself.'],error:['It is sweater. I made it.'],unknown:['A sweater.','I made it.','A sweater my sister made.']},
+        {intent:'описать содержимое и его происхождение',required:'свитер сделан самим посетителем',ellipsis:'необязательно It’s перед названием вещи',
+          errors:[error('it is sweater i made it(?: myself)?','sweater','Перед sweater в единственном числе здесь нужен артикль a.','It’s a sweater. I made it.','missing-determiner')]}),
+      turn('Nice! We can’t mail it in that bag. Did you bring anything else to put it in?','Здорово! В этом пакете мы его отправить не можем. Вы принесли что-нибудь ещё, во что его можно положить?','Нет, у меня только этот пакет.','No, I only have this bag.',
+        ['Just this bag.','No, just the bag.','This is the only bag I have.','No, this is all I have.'],
+        [`(?:no )?(?:(?:i only ${have}|i just ${have}|i have (?:only|just) got|only|just) (?:this|the) (?:paper )?bag|(?:this|that) is (?:all i (?:have|brought)|the only bag i have)|(?:this|the) bag is all i (?:have|brought)|all i (?:have|brought) is (?:this|the) (?:paper )?bag|i did not bring (?:anything else|another bag)|(?:i have )?nothing (?:else|but this bag))|no`],
+        {correct:['Only the paper bag.','No, I’ve just got this bag.','I have nothing else.'],error:['I only has this bag.'],unknown:['Yes, I only have this bag.','I have another bag.']},
+        {intent:'сообщить об отсутствии другой упаковки',required:'из упаковки только принесенный пакет',ellipsis:'No уже отвечает на вопрос о другой упаковке; Just this bag подтверждает, что есть',
+          rejectAffirmed:true,errors:[error('(?:no )?i only has this bag','has','С I употребляется have.','I only have this bag.')]}),
+      turn('We have boxes over here. They’re free. Pick one that fits.','У нас здесь есть коробки. Они бесплатные. Выберите ту, в которую поместится свитер.','Маленькой коробки хватит.','A small box is enough.',
+        ['The small one will do.','A small one is fine.','This little box will work.','The sweater will fit in the small one.','I just need a small box.'],
+        [`(?:a|the|this) (?:small|little) (?:box|one) (?:${enough}|(?:will|should) (?:do fine|work fine)|should (?:do|work|be big enough))(?: for (?:it|the sweater))?`,
+          '(?:it|the sweater) (?:will fit|fits) in (?:a|the|this) (?:small|little) (?:box|one)','i (?:only |just )?need (?:a|the) (?:small|little) (?:box|one)','(?:a|the|this) small (?:one|box)'],
+        {correct:['The small box will do.','It’ll fit in the small box.','This small one is fine.'],error:['A small box are enough.'],unknown:['A big box will do.','A small box won’t work.']},
+        {beContractions:['one','box'],intent:'выбрать коробку',required:'маленького размера достаточно',ellipsis:'one заменяет box; в ответ на предложение выбрать достаточно The small one',
+          errors:[error('(?:a|the|this) small (?:box|one) are enough','are','С box или one в единственном числе употребляется is.','A small box is enough.')]}),
+      turn('Good, it fits. When does she need it?','Хорошо, поместился. Когда он ей нужен?','Он должен быть у неё не позже субботы.','She needs it by Saturday.',
+        ['By Saturday.','It needs to get there by Saturday.','Can you get it there by Saturday?','Saturday at the latest.','I need it to arrive by Saturday.'],
+        ['(?:by|no later than) saturday','(?:by )?saturday at the latest','she (?:needs(?: to have)?|has to have) it (?:by|no later than) saturday',
+          '(?:it (?:needs to|has to|must)|(?:can|could) it) (?:arrive|reach her|get there|be there) (?:by|no later than) saturday',
+          'i need it (?:to (?:arrive|get there|be there) )?(?:by|no later than) saturday','(?:can|could) you (?:get|deliver) it (?:there |to her )?(?:by|no later than) saturday',
+          '(?:it (?:has to|needs to) be|i need it) (?:with her|there) (?:by|no later than) saturday'],
+        {correct:['She has to have it by Saturday.','Can it arrive by Saturday?','It has to be with her no later than Saturday.'],error:['She need it by Saturday.'],unknown:['After Saturday.','I need it by Sunday.','Any day is fine.']},
+        {intent:'задать крайний срок',required:'суббота включительно, более ранняя доставка подходит',ellipsis:'By Saturday отвечает на When',
+          stage:'Ты сложил свитер в маленькую коробку. Сотрудник заклеил её.',
+          errors:[error('she need it by saturday','need','В настоящем времени с she нужно needs.','She needs it by Saturday.')]}),
+      turn('We can send it two ways. It should get there on Friday or next Monday.','Можно отправить двумя способами. Посылка должна прийти в пятницу или в следующий понедельник.','Сколько стоит быстрая доставка?','How much is the faster one?',
+        ['How much does the faster one cost?','How much for Friday?','What’s the price for the faster option?','How much is it to get it there by Friday?','How much is it to send it the fast way?'],
+        ['how much (?:is|for) (?:the (?:(?:fast(?:er)?|quicker) (?:one|option|way|shipping|delivery)|friday (?:one|option|delivery))|(?:this )?friday(?: delivery)?)',
+          '(?:what|how much) does the (?:fast(?:er)?|quicker|friday) (?:one|option|way|shipping|delivery) cost','what is the (?:price|cost) (?:for|of) the (?:fast(?:er)? (?:one|option|way|shipping|delivery)|friday (?:one|delivery|option))',
+          'how much (?:(?:is it|does it cost) )?to (?:get it there by (?:this )?friday|(?:send|mail|ship) it (?:the fast(?:er)? way|so it gets there (?:on|by) friday))','what would it cost to (?:send|mail|ship) it for friday'],
+        {correct:['How much for the Friday option?','What is the cost of the faster delivery?','How much does it cost to send it the faster way?'],error:['How much does the faster one costs?'],unknown:['How much is the slower one?','Is the faster one free?']},
+        {intent:'узнать цену',required:'вариант, который должен прийти раньше',ellipsis:'one / Friday однозначно указывает на быстрый вариант',
+          errors:[error('how much does the fast(?:er)? (?:one|option|way|shipping|delivery) costs','costs','После does нужна форма cost.','How much does the faster one cost?')]}),
+      turn('That’s twelve dollars.','Это стоит двенадцать долларов.','Дороговато, но давайте так.','That’s a little expensive, but let’s do it.',
+        ['A bit expensive, but I’ll take it.','That’s a little high, but I’ll go with it.','It costs a bit much, but I’ll take the faster one.','That’s a bit pricey, but go ahead.'],
+        ['(?:(?:that|it) is )?(?:a (?:little|bit) )?(?:expensive|pricey|high|steep|much) but (?:let us (?:do it|go with (?:it|that))|i will (?:take|go with) (?:it|that|the fast(?:er)? one)|go ahead(?: and (?:send|mail|ship) it)?|(?:okay )?i will (?:pay|do) it|okay|that (?:is fine|works(?: for me)?))',
+          '(?:it )?costs (?:a bit|a little) more than i (?:hoped|expected) but (?:okay )?i will (?:do|take) it','it costs (?:a bit|a little) much but i will (?:take|go with) (?:it|the fast(?:er)? one)'],
+        {correct:['It’s a bit expensive, but I’ll go with that.','A little pricey, but lets do it.','That is a bit much, but go ahead and send it.'],error:['That’s a bit expensive, but I’ll takes it.'],unknown:['Too expensive. I won’t do it.','I’ll take the slower one.','That’s expensive.']},
+        {intent:'принять быстрый вариант несмотря на цену',required:'реакция на цену и согласие',ellipsis:'it / that заменяет обсуждаемую доставку',
+          allowLets:true,errors:[error('(?:(?:that|it) is )?(?:a (?:little|bit) )?(?:expensive|pricey|high) but i will takes it','takes','После will нужна форма take.','That’s a bit expensive, but I’ll take it.')]}),
+      turn('All right. Write her name at the top of this label. Do you have her address?','Хорошо. Напишите её имя сверху. Адрес у вас с собой?','У меня адрес в телефоне.','I have the address on my phone.',
+        ['The address is on my phone.','It’s on my phone.','On my phone.','I’ve got it here on my phone.','Her address is saved on my phone.'],
+        [`i ${have} (?:it|(?:her|the) address)(?: (?:right )?here)? (?:on|in) my phone`,'(?:it|(?:her|the) address) is (?:saved |(?:right )?here )?(?:on|in) my phone(?: contacts)?','(?:on|in) my phone(?: (?:right )?here| contacts)?',`(?:i )?(?:have )?(?:just )?got (?:it|(?:her|the) address)(?: (?:right )?here)? (?:on|in) my phone`,'i saved (?:it|(?:her|the) address) (?:on|in) my phone'],
+        {correct:['Got her address on my phone.','I have it in my phone.','I saved the address on my phone.'],error:['Her address are on my phone.'],unknown:['The address is at home.','I don’t have her address.']},
+        {intent:'сообщить, где доступен адрес',required:'адрес в телефоне',ellipsis:'it — адрес; допустимо опустить подлежащее в Got her address',
+          beContractions:['address'],errors:[error('(?:her|the) address are on my phone','are','Address в единственном числе, поэтому здесь нужно is.','Her address is on my phone.')]}),
+      turn('Take your time. Let me know when you’re done.','Не спешите. Скажите, когда закончите.','А как я узнаю, где посылка?','How can I see where my package is?',
+        ['How do I know where it is?','How can I track it?','How do I track my package?','Is there a way to see where it is?','Can I check where my package is?'],
+        ['how (?:do|can|will) i (?:see|know|check|tell|find out) where (?:it|(?:my|the|this) (?:package|parcel|box)) is(?: online)?',
+          '(?:how|where) (?:do|can) i check on (?:it|(?:my|the) (?:package|parcel))','how (?:do|can) i (?:track|follow) (?:it|(?:my|the|this) (?:package|parcel|box))',
+          `(?:is there a way to|${ask}) (?:track (?:it|(?:my|the) (?:package|parcel))|(?:see|check|find out) where (?:it|(?:my|the) (?:package|parcel)) is)(?: online| along the way)?`],
+        {correct:['How will I know where the parcel is?','Can I track my parcel online?','Is there a way to find out where it is?'],error:['How can I see where is my package?'],unknown:['How do I open the package?','Where is my package?']},
+        {intent:'узнать способ отслеживания',required:'как узнавать местоположение посылки',ellipsis:'it заменяет посылку',
+          errors:[error('how (?:do|can|will) i (?:see|know|check|find out) where is (?:it|(?:my|the) (?:package|parcel))','where is','В косвенном вопросе после see/know: where my package is.','How can I see where my package is?')]}),
+      turn('You’ll get a number on your receipt. You can use it on our website.','На чеке будет номер. Им можно воспользоваться на нашем сайте.','Можно заплатить телефоном?','Can I pay with my phone?',
+        ['Can I use my phone to pay?','Do you take phone payments?','Is it okay to pay with my phone?','Can I tap my phone to pay?'],
+        [`(?:${ask}|is it (?:okay|ok) to) (?:pay (?:with|using) (?:my|this) phone|use my phone to pay|tap (?:my phone(?: to pay)?|to pay with my phone))`,
+          'do you (?:take|accept) (?:phone|mobile) payments','can you take a payment from my phone','is it (?:all right|okay|ok) if i pay with my phone',`${ask} make the payment (?:with|on) my phone`,
+          `(?:${ask} use|do you (?:take|accept)) (?:apple|google) pay`],
+        {correct:['Could I use my phone to pay?','Do you accept mobile payments?','Is it okay to pay using my phone?'],error:['Can I pays with my phone?'],unknown:['Can I pay in cash?','Can I call her on my phone?']},
+        {intent:'проверить способ оплаты у стойки',required:'оплата с помощью телефона',ellipsis:'tap my phone у терминала означает бесконтактную оплату',
+          stage:'Ты переписал адрес с телефона, наклеил этикетку и передал коробку сотруднику.',
+          errors:[error('(?:can|could|may) i pays with my phone','pays','После can/could/may употребляется pay.','Can I pay with my phone?')]})
+    ],
+    ending:{en:'Yes, tap right here. Great, it went through. Here’s your receipt!',ru:'Да, приложите вот сюда. Отлично, оплата прошла. Вот ваш чек!'}
+  });
+
+  root.DIALOGUES.push({
+    id:'a1-class',topic:'art-class',topicLabel:'Занятия',title:'Звонок в студию рисования',
+    speaker:'Администратор студии',level:'A1',length:'long',checking:'construction',
+    context:'Ты Анна Ли. Ты записалась на курс рисования по понедельникам. Сегодня ты узнала новый график работы и звонишь в студию.',
+    tone:'Доброжелательный деловой разговор по телефону.',
+    authorSynopsis:'Ученик меняет день курса, выясняет, что делать с материалами, и узнает, как найти вход.',
+    reviewFunctions:['Обозначить запись и тему звонка.','Объяснить, почему понедельник не подходит.','Попросить перевести в другую группу.','Предложить конкретный день.','Уточнить время начала.','Подтвердить время и назвать имя, чтобы найти запись и перенести её.','Сообщить, что раньше не занимался в этой студии.','Узнать требования к материалам.','Выяснить, что делать, если есть только ручка.','Получить ориентир для входа.'],
+    turns:[
+      turn('Hello, Green Street Art. How can I help you?','Здравствуйте, студия рисования на Грин-стрит. Чем могу помочь?','Я записана на занятия по понедельникам.','I’m in the Monday class.',
+        ['I signed up for the Monday class.','I’m on the list for Mondays.','I have a place in the Monday art class.','I’m calling about my Monday class.','I’ve signed up for the Monday classes.'],
+        ['i am (?:in (?:the|your) monday (?:(?:art|drawing) )?(?:class|group)|on the list for monday(?:s| (?:art )?class)|(?:calling about|taking) (?:my|the) monday (?:art )?class|signed up for (?:the )?monday(?:s| (?:art )?class(?:es)?)|taking art on mondays)',
+          '(?:i (?:have )?)?(?:signed up|registered|enrolled) (?:for|in) (?:(?:the )?monday(?:s| (?:art )?class(?:es)?)|the class on mondays)','i (?:have )?signed up to come on mondays','i (?:have|have got|(?:have )?booked) (?:a place|a spot) (?:in|for) the monday (?:art )?class'],
+        {correct:['I’m signed up for Mondays.','I registered for the Monday art class.','I’ve booked a spot in the Monday class.'],error:['I’m in Monday class.'],unknown:['I’m in the Tuesday class.','I’d like to sign up for Monday.']},
+        {intent:'сообщить о существующей записи',required:'группа по понедельникам',ellipsis:'art можно опустить в разговоре со студией',
+          errors:[error('i am in monday class','monday class','В этой формулировке речь о конкретной группе: the Monday class.','I’m in the Monday class.','missing-determiner')]}),
+      turn('Oh, that class starts at six. Is there a problem?','А, это занятие начинается в шесть. Что-то случилось?','По понедельникам я работаю до семи.','I work until seven on Mondays.',
+        ['On Mondays I work until seven.','I’m at work till seven on Mondays.','I don’t get off work until seven on Mondays.','I have work until seven every Monday.'],
+        ['(?:(?:on )?mondays |every monday )?(?:i (?:have work|am (?:at work|working))|(?:i )?work(?: mondays)?) (?:until|till|til) (?:seven|7)(?: (?:pm|p m|in the evening))?(?: on mondays| every monday| on monday nights)?',
+          '(?:on mondays |every monday )?i (?:do not (?:get off work|finish work|leave work) (?:until|till)|(?:only )?(?:get off(?: work)?|finish work) at) (?:seven|7)(?: (?:pm|p m))?(?: on mondays| every monday)?',
+          '(?:on mondays |every monday )?my (?:work|shift) (?:ends|finishes) at (?:seven|7)(?: (?:pm|p m))?(?: on mondays| every monday)?'],
+        {correct:['I work till 7 p.m. on Mondays.','My shift ends at seven every Monday.','On Mondays I don’t finish work till seven.'],error:['I works until seven on Mondays.'],unknown:['I work until five on Mondays.','I’m free at seven.','I don’t work on Mondays.']},
+        {intent:'объяснить накладку по времени',required:'работа до семи в обсуждаемый день',ellipsis:'on Mondays можно опустить, день уже назван',
+          errors:[error('i works (?:until|till) (?:seven|7)(?: on mondays)?','works','С I употребляется work.','I work until seven on Mondays.')]}),
+      turn('Ah, I see. You’ll miss the start.','А, понятно. Вы пропустите начало.','Можно ходить в другой день?','Can I come on a different day?',
+        ['Could I switch to another day?','Is there a class on another day?','Can I take the class on a different day?','Do you have a class on another day?','Can I switch days?'],
+        [`${ask} (?:come|take the class|do the class) (?:on )?(?:a different|another|some other) day(?: instead)?`,
+          `${ask} (?:switch (?:days|to (?:a different|another) (?:day|class))|change (?:days|my class day|to (?:another|a different) (?:class )?day))`,
+          '(?:is there|do you have) (?:a|another) (?:class|group) on (?:a different|another) day','is it possible to (?:switch|change|come) (?:to |on )?(?:another|a different) (?:class )?day','(?:could|can) you (?:move|switch) me to (?:a different|another) day',`${ask} move to (?:a different|another) day`, 'would i be able to (?:come on|switch to) (?:another|a different) day'],
+        {correct:['May I come another day instead?','Could you move me to another day?','Do you have another class on a different day?'],error:['Can I to come on a different day?'],unknown:['Can I come later on Monday?','Can I change teachers?']},
+        {intent:'попросить сменить день',required:'сохранить занятия, выбрать иной день или группу',ellipsis:'название курса уже известно',
+          errors:[error('(?:can|could|may) i to come (?:on )?(?:a different|another) day','to come','После can/could/may здесь нужно come без to.','Can I come on a different day?')]}),
+      turn('Let me look. Hmm, Tuesday is full.','Сейчас посмотрю. Так, на вторник мест нет.','А в среду есть занятия?','Is there a class on Wednesday?',
+        ['Do you have a Wednesday class?','What about Wednesday?','Any classes on Wednesday?','Is there anything on Wednesdays?','Can I come on Wednesdays?'],
+        ['(?:is there (?:a class|class|anything|an opening)|are there (?:any classes|any openings)|do you have (?:any classes|a class|anything|(?:any )?(?:space|room))|any (?:classes|openings)|anything(?: open)?) on wednesday(?:s)?',
+          '(?:do you have|is there) a wednesday (?:class|group)','(?:what|how) about wednesday(?:s)?','(?:can|could) i (?:come|do it|take it) (?:on )?wednesday(?:s)?','and wednesday(?:s)?','do you have (?:some |any )?(?:room|space) in the wednesday (?:class|group)'],
+        {correct:['How about Wednesdays?','Are there any classes on Wednesday?','Is there a Wednesday group?'],error:['Is there a classes on Wednesday?'],unknown:['Is there a class on Thursday?','Tuesday works for me.']},
+        {intent:'проверить возможность заниматься в среду',required:'среда',ellipsis:'What about Wednesday? ссылается на наличие группы',
+          errors:[error('is there a classes on wednesday(?:s)?','classes','После is there a здесь нужно class в единственном числе. Во множественном числе: Are there any classes…?','Is there a class on Wednesday?')]}),
+      turn('Yes! There’s one place left.','Да! Осталось одно место.','Во сколько начинается занятие?','What time does it start?',
+        ['When does it start?','What time is the class?','When does the Wednesday class begin?','What time on Wednesday?','Do you know what time it starts?'],
+        ['(?:what time|when) does (?:it|the (?:wednesday )?(?:class|group)) (?:start|begin)','(?:what time|when) do (?:we|the wednesday classes) (?:start|begin)','(?:what time|when) is (?:it|the (?:wednesday )?class)',
+          'what time(?: (?:on |is it on )?wednesday(?:s)?)?|what is the starting time','(?:do you know|(?:can|could) you tell me) (?:what time|when) (?:it|the (?:wednesday )?class) (?:starts|begins)'],
+        {correct:['What time does the class begin?','Could you tell me when it starts?','What time is it on Wednesday?'],error:['What time does it starts?'],unknown:['What time does it end?','Where does it start?']},
+        {intent:'узнать время начала',required:'начало занятия в среду',ellipsis:'it — занятие; краткое What time? однозначно',
+          errors:[error('(?:what time|when) does (?:it|the (?:wednesday )?class) starts','starts','После does в вопросе употребляется start.','What time does it start?')]}),
+      turn('Seven. Can I get your name?','В семь. Как вас зовут?','Мне подходит. Меня зовут Анна Ли.','That works for me. I’m Anna Lee.',
+        ['Seven works for me. My name is Anna Lee.','Seven is fine. Anna Lee.','I can make it at seven. It’s Anna Lee.','Sounds good. I’m Anna Lee.'],
+        ['(?:that(?: time)? (?:works|should work|is (?:good|fine|perfect))(?: for me)?|(?:seven|7) (?:(?:works|should work)(?: for me)?|is (?:good|fine|perfect)(?: for me)?)|(?:that )?sounds good|i can make it(?: at (?:seven|7))?|i can do (?:seven|7)) (?:(?:i am|(?:my )?name is|it is|this is) )?anna lee',
+          '(?:i am|my name is|it is) anna lee (?:(?:seven|7) (?:works(?: for me)?|is fine)|that works(?: for me)?)'],
+        {correct:['That’s fine for me. Anna Lee.','7 works. I’m Anna Lee.','My name is Anna Lee. Seven is fine.'],error:['That work for me. I’m Anna Lee.'],unknown:['That works for me.','I’m Anna Lee.','Seven won’t work. I’m Anna Lee.','Seven is fine. I’m Mary Lee.']},
+        {beContractions:['name'],intent:'подтвердить время и назвать имя для переноса',required:'время подходит; имя Анна Ли',
+          ellipsis:'That ссылается на семь; имя без вводной конструкции отвечает на вопрос',
+          errors:[error('that work for me (?:i am|my name is) anna lee','work','С that в настоящем времени употребляется works.','That works for me. I’m Anna Lee.')]}),
+      turn('You’re on the list for Wednesday now. Have you taken a class here before?','Теперь вы в списке на среду. Вы раньше у нас занимались?','Нет, это будет моё первое занятие у вас.','No, it’s my first class here.',
+        ['My first class here.','No, this will be my first class here.','No, I’ve never taken a class here.','No, this is my first one.','No, it’ll be my first time here.'],
+        ['(?:no )?(?:(?:(?:it|this) (?:is|will be) )?(?:my first (?:class|one|time)|first one)(?: here| with you(?: guys)?)?|(?:i have )?never (?:taken|had|been to) a class here|(?:i have )?never (?:taken|been to) one of your classes|i have never had a lesson here before|this will be the first (?:class|lesson) i have taken (?:here|there)|i have not taken a class here before|not yet|nope|never)','no'],
+        {correct:['I’ve never been to a class here.','No, my first time.','No, I haven’t taken a class here before.'],error:['No, it are my first class here.'],unknown:['Yes, it’s my first class here.','I took a class here last year.']},
+        {intent:'сообщить об отсутствии прежних занятий в студии',required:'первое занятие здесь; «нет» отвечает на конкретный вопрос',
+          ellipsis:'No достаточно; here можно опустить',
+          rejectAffirmed:true,errors:[error('(?:no )?(?:it|this) are my first class here','are','С it/this здесь употребляется is.','No, it’s my first class here.')]}),
+      turn('Welcome! We’ll start with a very easy picture.','Добро пожаловать! Мы начнем с очень простого рисунка.','Что мне принести с собой?','What do I need to bring?',
+        ['What should I bring?','Do I need to bring anything?','Do I have to bring anything with me?','Is there anything I need to bring to class?','What do I bring with me?'],
+        ['what (?:(?:do|will) i (?:need|have) to|(?:should|can|do) i) bring(?: (?:with me|to class|on wednesday))?',
+          '(?:(?:do|will) i (?:need|have) to|should i) bring anything(?: (?:with me|to class|on wednesday))?','(?:is there )?anything i (?:need to|should|have to) bring(?: (?:with me|to class|on wednesday))?','what (?:materials|supplies) (?:do i need to|should i) bring(?: with me)?','what (?:do i need to have|(?:do|should) i take) with me','do i need (?:to bring )?(?:any|some) (?:materials|supplies)(?: for class)?'],
+        {correct:['Will I need to bring anything to class?','Should I bring anything on Wednesday?','Is there anything I should bring with me?'],error:['What I need to bring?'],unknown:['What should I wear?','When should I bring it?']},
+        {intent:'узнать, что нужно взять на занятие',required:'необходимые вещи или материалы',ellipsis:'курс и день уже согласованы',
+          errors:[error('what i need to bring(?: with me)?','what i need','В прямом вопросе нужно do: What do I need to bring?','What do I need to bring?')]}),
+      turn('A pencil and some paper, if you have them.','Карандаш и бумагу, если они у вас есть.','Дома у меня только ручка.','I only have a pen at home.',
+        ['Just a pen at home.','I’ve only got a pen at home.','All I have at home is a pen.','No, just a pen.','I don’t have those. I just have a pen.'],
+        [`(?:no )?(?:i (?:only|just) ${have}|i have (?:only|just) got|i have only|(?:only|just)) a pen(?: at home)?`,
+          '(?:no )?all i (?:have|have got)(?: at home)? is a pen|a pen is all i (?:have|have got)(?: at home)?','at home (?:i (?:(?:only|just) (?:have|have got)|have (?:only|just) got)|(?:only|just)) a pen',
+          'i (?:do not have (?:those|them)|have (?:no pencil or paper|neither)) (?:i (?:just|only) have|just|only) a pen(?: at home)?'],
+        {correct:['At home I’ve only got a pen.','No, I just have a pen at home.','I have no pencil or paper, just a pen.'],error:['I only have pen at home.'],unknown:['I only have a pencil at home.','I have a pen and a pencil at home.','I don’t have a pen.']},
+        {intent:'сообщить, что нужных материалов нет и есть только ручка',required:'ручка как единственный доступный предмет',ellipsis:'at home можно опустить, вопрос о том, что есть у ученика',
+          errors:[error('i (?:only|just) have pen(?: at home)?','pen','Pen в единственном числе: здесь нужно a pen.','I only have a pen at home.','missing-determiner')]}),
+      turn('No problem. You can use ours.','Ничего страшного. Можете взять наши материалы.','Где вход в студию?','Where do I go in?',
+        ['Where’s the entrance?','How do I get in?','How do I find your door?','Which door should I use?','Where’s the door to the studio?'],
+        ['where is (?:the|your) (?:door|entrance)(?: (?:to|for) (?:the|your) studio)?','where (?:do|can|should) i (?:go in|get in)(?: for (?:the )?class| at (?:the|your) studio)?|where (?:do|can|should) i enter(?: (?:the|your) studio)?',
+          'how (?:do|can) i (?:get in(?:to the studio)?|find (?:the|your) (?:door|entrance|studio entrance))','which door (?:do i (?:use|go in)|should i use|is yours|is it)','which is the door to the studio|which door is the entrance|where is the way in'],
+        {correct:['Where can I get in?','Which door is yours?','Where is the entrance to the studio?'],error:['Where the entrance is?'],unknown:['Where’s the exit?','Which room is the class in?']},
+        {intent:'уточнить, как найти вход',required:'вход в студию с улицы',ellipsis:'название студии уже известно',
+          errors:[error('where (?:the|your) (?:door|entrance) is','where the entrance','В прямом вопросе is перед the entrance: Where is the entrance?','Where is the entrance?')]})
+    ],
+    ending:{en:'Our door is next to the bank. See you Wednesday!',ru:'Вход рядом с банком. До среды!'}
+  });
+})(typeof window!=='undefined'?window:globalThis);
+
+</script>
+  <script>
 /* Unified completion rounds, independent of history and text visibility. */
 (function(root){
   const count=n=>Number.isSafeInteger(n)&&n>=0?n:0;
@@ -2422,7 +3224,7 @@ root.DIALOGUES.find(d=>d.id==='batch-bus').turns[8].assessment.cases.error.push(
   <script>
 (function(){
   'use strict';
-  window.APP_VERSION='0.14.4';
+  window.APP_VERSION='0.15';
   const $=id=>document.getElementById(id),app=$('app'),E=window.OfflineEngine,P=window.OfflineProgress,S=window.OfflineSpeech;
   const dialogues=window.DIALOGUES.filter(d=>d.checking==='construction'),KEY='everyday-offline-v1';
   const statusNames={correct:'Верно',acceptable:'Понятно, но обычно так не говорят или неуместно в этой ситуации',error:'Ошибка',unknown:'Не распознано',revealed:'Не определено'};
