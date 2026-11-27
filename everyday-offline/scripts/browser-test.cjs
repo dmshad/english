@@ -120,6 +120,20 @@ await answer("Can't open the door");
 assert.equal((await state()).session.answers[3].status,'correct');
 assert.equal(await run('document.querySelector(".status.correct").textContent'),'Верно');
 assert.equal(await run('document.querySelectorAll(".annotated-answer .word-correct").length'),4);
+
+const cinema=all.find(item=>item.id==='a1-cinema');
+await choose(cinema);await click('[data-action=intro-next]');
+for(let i=0;i<3;i++){await answer(cinema.turns[i].best);await click('[data-action=next]');}
+await answer('It is got stripes of white on a blue background. Blorven.');
+assert.equal(await run('document.querySelector(".status.unknown").textContent'),'Не распознано');
+assert.equal(await run('document.querySelector(".annotated-answer .word-error").textContent'),'is');
+assert.equal(await run('[...document.querySelectorAll(".annotated-answer .word-acceptable")].map(word=>word.textContent).join(" ")'),'stripes of white');
+assert.equal(await run('document.querySelector(".annotated-answer .word-neutral").textContent'),'Blorven');
+assert.equal(await run('document.querySelector(".annotated-answer .word-correct").textContent'),'It');
+assert.equal(await run('document.querySelectorAll(".explanation").length'),2);
+assert.ok((await state()).history.at(-1).answers[3].annotations.some(part=>part.color==='acceptable'));
+await fits('mixed four colors375');
+
 await run(`(() => {
   const key='everyday-offline-v1';
   const saved=JSON.parse(localStorage.getItem(key));

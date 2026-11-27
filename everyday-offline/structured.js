@@ -4,7 +4,9 @@
   'use strict';
   const contractions={"you've":"you have","they're":"they are","wasn't":"was not","weren't":"were not","didn't":"did not","haven't":"have not","i'm":'i am',"we're":'we are',"you're":'you are',"it's":'it is',"that's":'that is',"there's":'there is',"where's":'where is',"what's":'what is',"i'd":'i would',"we'd":'we would',"i'll":'i will',"we'll":'we will',"i've":'i have',"we've":'we have',"don't":'do not',"doesn't":'does not',"can't":'cannot',"isn't":'is not',"aren't":'are not',"won't":'will not',"wouldn't":'would not',"couldn't":'could not',"let's":'let us'};
   function normalize(text,frame){
-    return String(text).normalize('NFKC').toLowerCase().replace(/[’‘]/g,"'")
+    let normalized=String(text).normalize('NFKC').toLowerCase().replace(/[’‘]/g,"'");
+    if(frame?.allowHasBeen)normalized=normalized.replace(/\b(it|that|he|she)'s(?=[ \t]+been\b)/g,'$1 has');
+    return normalized
       .replace(/\b(it|that|he|she)'s(?=[ \t]+got\b)/g,'$1 has')
       .replace(/\b(i|we|you|he|she|they)'d better\b/g,'$1 had better')
       .replace(/\b(you|he|she|it|they|that)'ll\b/g,'$1 will')
@@ -335,7 +337,27 @@
     return acceptable;
   }
   const conversationalLets=/(^(?:(?:no|oh|okay|ok|sure|yes|yeah|then|well|all right) )*|\bbut )lets(?= )/;
-  function evaluate(answer,turn){
+  const styleMatchers=new WeakMap();
+  function rewriteStyle(text,frame){
+    if(!frame.styleAlternatives?.length)return null;
+    let matcher=styleMatchers.get(frame);
+    if(!matcher){
+      const alternatives=new Map(frame.styleAlternatives.map(({from,to,note,focus})=>[
+        normalize(from,frame),{correction:normalize(to,frame),note,focus:normalize(focus||from,frame)}
+      ]));
+      const phrases=[...alternatives.keys()].sort((a,b)=>b.length-a.length);
+      matcher={alternatives,pattern:new RegExp('(^| )('+phrases.join('|')+')(?= |$)','g')};
+      styleMatchers.set(frame,matcher);
+    }
+    const diagnostics=new Map();
+    const rewritten=text.replace(matcher.pattern,(_,space,fragment)=>{
+      const {correction,note,focus}=matcher.alternatives.get(fragment);
+      diagnostics.set(fragment,{status:'acceptable',source:fragment,fragment:focus,note,correction,code:'context-style'});
+      return space+correction;
+    });
+    return diagnostics.size?{rewritten,diagnostics:[...diagnostics.values()]}:null;
+  }
+  function evaluate(answer,turn,allowStyle=true){
     const frame=turn.assessment;
     let text=normalize(answer,frame);
     if(frame.allowLets)text=text.replace(conversationalLets,'$1let us');
@@ -360,6 +382,16 @@
       const impliedI=/\?[?!]*\s*$/.test(answer)?null:firstPersonEllipsis(e,turn);
       result=impliedI||spellingError(e,frame)||result;
     }
+    if(allowStyle&&(!result||result.status==='unknown')){
+      const style=rewriteStyle(text,frame);
+      if(style){
+        const verified=evaluate(style.rewritten+(/\?[?!]*\s*$/.test(answer)?'?':''),turn,false);
+        if(verified.status==='correct')result={...verified,...style.diagnostics[0],diagnostics:style.diagnostics};
+        if(verified.status==='error'&&verified.fragment&&(' '+text+' ').includes(' '+verified.fragment+' ')){
+          result={...verified,diagnostics:[...(verified.diagnostics||[verified]),...style.diagnostics]};
+        }
+      }
+    }
     return {...(result||unknown('',e.blocks)),method:'construction',assessmentVersion:'pilot-1'};
   }
   function tokenize(answer){
@@ -371,9 +403,10 @@
       const text=token.text.normalize('NFKC');
       // Keep unsupported words in place so they cannot disappear from an alignment.
       const next=tokens[index+1];
-      const withGot=next&&/^got$/i.test(next.text)&&/^[ \t]+$/.test(answer.slice(token.end,next.start));
+      const withParticiple=next&&(/^got$/i.test(next.text)||(frame.allowHasBeen&&/^been$/i.test(next.text)))
+        &&/^[ \t]+$/.test(answer.slice(token.end,next.start));
       const word=/^[a-z0-9'’‘]+$/i.test(text)
-        ?(withGot?normalize(text+' got',frame).slice(0,-4):normalize(text,frame))
+        ?(withParticiple?normalize(text+' '+next.text,frame).slice(0,-next.text.length-1):normalize(text,frame))
         :text;
       return word.split(' ').map(word=>({word,index}));
     });
@@ -382,7 +415,8 @@
     for(const token of tokens)token.color='correct';
     const locate=fragment=>{const words=normalize(fragment).split(' ');for(let i=0;i<=units.length-words.length;i++)if(words.every((w,j)=>units[i+j].word===w))return [...new Set(units.slice(i,i+words.length).map(u=>u.index))];return [];};
     const insertions=[];
-    if(result.status==='error')for(const d of result.diagnostics||[result]){
+    const diagnostics=result.diagnostics||[result];
+    if(result.status==='error')for(const d of diagnostics.filter(d=>d.status==='error'||!d.status)){
       let ids=locate(d.fragment);
       if(d.code==='missing-determiner'||d.code==='missing-of'){
         const target=d.code==='missing-of'?(ids.find(i=>normalize(tokens[i].text)==='water')??ids.at(-1)):ids[0];
@@ -399,10 +433,24 @@
       for(const i of ids){tokens[i].color='error';tokens[i].note=d.note;}
     }
     if(result.status==='error'&&!insertions.length&&!tokens.some(t=>t.color==='error'))for(const token of tokens)token.color='neutral';
-    if(result.status==='acceptable'){
-      let ids=result.fragment?locate(result.fragment):tokens.map((_,i)=>i).filter(i=>/^(give|gimme|bring|pass|request|some)$/i.test(tokens[i].text));
+    for(const d of diagnostics.filter(d=>d.status==='acceptable')){
+      if(d.code==='context-style'){
+        const phrase=d.source.split(' '),focus=d.fragment.split(' ');
+        const offset=phrase.findIndex((_,index)=>focus.every((word,i)=>phrase[index+i]===word));
+        if(offset<0)continue;
+        for(const [index,unit] of units.entries()){
+          if(unit.word!==phrase[0]||!phrase.every((word,i)=>units[index+i]?.word===word))continue;
+          for(const {index:tokenIndex} of units.slice(index+offset,index+offset+focus.length)){
+            if(tokens[tokenIndex].color==='error')continue;
+            tokens[tokenIndex].color='acceptable';
+            tokens[tokenIndex].note=d.note;
+          }
+        }
+        continue;
+      }
+      let ids=d.fragment?locate(d.fragment):tokens.map((_,i)=>i).filter(i=>/^(give|gimme|bring|pass|request|some)$/i.test(tokens[i].text));
       if(!ids.length)ids=tokens.map((_,i)=>i);
-      for(const i of ids){tokens[i].color='acceptable';tokens[i].note=result.note;}
+      for(const i of ids){tokens[i].color='acceptable';tokens[i].note=d.note;}
     }
     return insertions;
   }
@@ -480,8 +528,13 @@
       const result=evaluate(text,turn);
       const partUnits=comparisonUnits(part,frame,answer);
       if(result.status==='unknown'){
-        if(part.length>=2&&referenceClauses.some(clause=>normalize(clause,frame)===normalize(text,frame))){
+        const normalized=normalize(text,frame);
+        const style=rewriteStyle(normalized,frame);
+        if(part.length>=2&&referenceClauses.some(clause=>normalize(clause,frame)===normalized)){
           for(const token of part)token.color='correct';
+        }else if(style&&referenceClauses.some(clause=>normalize(clause,frame)===style.rewritten)){
+          annotate(part,partUnits,{status:'acceptable',diagnostics:style.diagnostics});
+          diagnostics.push(...style.diagnostics);
         }else markReferenceParts(part,partUnits,references,frame);
         markRequestPrefix(part,partUnits,result.partialRequest);
         continue;

@@ -7,7 +7,7 @@ const vm = require('node:vm');
 const context = {globalThis: {DIALOGUES: []}};
 const files = [
   'engine.js', 'structured.js', 'content-a1-batch.js',
-  'content-a1-block1-a.js', 'content-a1-block1-b.js', 'content-a1-block1-c.js'
+  'content-a1-block1-a.js', 'content-a1-block1-b.js', 'content-a1-block1-c.js', 'content-a1-block1-expansion.js', 'content-a1-block1-refinement.js'
 ];
 for (const file of files) {
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), context, {filename: file});
